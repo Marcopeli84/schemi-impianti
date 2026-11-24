@@ -155,10 +155,12 @@ function workerMain(){
 
 /* ====================== stato ====================== */
 const BAND=800,MIN_PARETE=900,KEY='schemi-impianti-v2';
-const NM={ymax:'Parete in alto',xmax:'Parete a destra',ymin:'Parete in basso',xmin:'Parete a sinistra'};
+const POSN={ymax:'in alto nella pianta',xmax:'a destra nella pianta',ymin:'in basso nella pianta',xmin:'a sinistra nella pianta'};
+const DEFN={ymax:'Parete 1',xmax:'Parete 2',ymin:'Parete 3',xmin:'Parete 4'};
+const NM=new Proxy({},{get:(_,k)=>(S.names&&S.names[k])||DEFN[k]});
 const WALLS=['ymax','xmax','ymin','xmin'];
 const $=id=>document.getElementById(id),svg=$('svg');
-function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},show:{ymax:true,xmax:true,ymin:true,xmin:true},wr:{},pieces:[],
+function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},show:{ymax:true,xmax:true,ymin:true,xmin:true},names:{},wr:{},pieces:[],
  ann:{ymax:[],xmax:[],ymin:[],xmin:[],C:[],D:[]},flip:false,ref:{h:'L',v:'p'},nid:1,pid:1};}
 let S=newState(),ann=S.ann,VIEWS={},cur='D',tool='sel',sym='P',pre='B',snapOn=true,sel=null,selP=null,hist=[],vb={},dim=null,mouse=null,drag=null,OP=.7;
 const SYM={
@@ -178,7 +180,7 @@ function buildViews(){
   ymin:{d:[-R.x1,-R.x0],f:p=>p.y0<R.y0+BAND,r:p=>[-p.x1,p.z0,-p.x0,p.z1],mv:(p,a,b)=>{p.x0-=a;p.x1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:-u1,x1:-u0,y0:R.y0,y1:R.y0+d,z0,z1})},
   xmin:{d:[R.y0,R.y1],f:p=>p.x0<R.x0+BAND,r:p=>[p.y0,p.z0,p.y1,p.z1],mv:(p,a,b)=>{p.y0+=a;p.y1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:u0,y1:u1,x0:R.x0,x1:R.x0+d,z0,z1})}};
  for(const k of WALLS)if(S.show[k]){const d=S.wr[k]||D[k].d;
-  o[k]={n:NM[k],s:'vista frontale della parete '+NM[k].replace('Parete ','')+' nella pianta',lab:'h',f:D[k].f,r:D[k].r,mv:D[k].mv,mk:D[k].mk,fr:[d[0],0,d[1],H]};}
+  o[k]={n:NM[k],s:'vista frontale della parete '+POSN[k],lab:'h',f:D[k].f,r:D[k].r,mv:D[k].mv,mk:D[k].mk,fr:[d[0],0,d[1],H]};}
  const plan={lab:'y',f:()=>true,r:p=>[p.x0,p.y0,p.x1,p.y1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.y0+=b;p.y1+=b;},fr:[R.x0,R.y0,R.x1,R.y1],
   mkp:(u,v,w,d,z0,h)=>({x0:u-w/2,x1:u+w/2,y0:v-d/2,y1:v+d/2,z0,z1:z0+h})};
  o.C={n:'Soffitto',s:'vista dal basso (planimetria soffitto)',...plan};
@@ -257,14 +259,14 @@ function drawOv(){let s='';
 function dimDraft(){if(!dim||!dim.p2||!mouse)return null;return dim.ax==='h'?{ax:'h',a:dim.p1[0],b:dim.p2[0],p1:dim.p1[1],p2:dim.p2[1],off:mouse[1]}:{ax:'v',a:dim.p1[1],b:dim.p2[1],p1:dim.p1[0],p2:dim.p2[0],off:mouse[0]};}
 
 /* ====================== storia, salvataggio automatico ====================== */
-function snapJ(){return JSON.stringify({room:S.room,show:S.show,wr:S.wr,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
+function snapJ(){return JSON.stringify({room:S.room,show:S.show,names:S.names,wr:S.wr,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
 function push(){hist.push(snapJ());if(hist.length>60)hist.shift();}
 function undo(){if(!hist.length)return;Object.assign(S,JSON.parse(hist.pop()));ann=S.ann;sel=selP=null;$('pn').value=S.nome;rebuild();autosave();}
-function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,show:S.show,wr:S.wr,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
-function autosave(){try{localStorage.setItem(KEY,stateText());}catch(e){}}
+function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,show:S.show,names:S.names,wr:S.wr,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
+function autosave(){}
 function loadState(d){
  if(!d||d.v!==2||!Array.isArray(d.pieces)||!d.room||!d.ann)throw new Error('formato');
- const n=newState();S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,show:Object.assign(n.show,d.show||{}),wr:d.wr||{},pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
+ const n=newState();S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,show:Object.assign(n.show,d.show||{}),names:d.names||{},wr:d.wr||{},pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
  for(const v in S.ann)for(const a of S.ann[v]){if(a.t==='s'){const s=SYM[a.k];if(s&&!a.shape){a.shape=s[3];a.w=s[4];a.h=s[5];a.code=s[1];a.color=s[2];}}if(a.t==='d')for(const k of ['r1','r2'])if(typeof a[k]==='number')a[k]={id:a[k],k:'c'};}
  S.nid=Math.max(d.nid||1,1+Math.max(0,...Object.values(S.ann).flat().map(a=>a.id)));
  S.pid=Math.max(d.pid||1,1+Math.max(0,...S.pieces.map(p=>p.id||0)));
@@ -428,6 +430,7 @@ function buildTools(){let h='<h3>Strumenti</h3><button data-t="sel">☝ Simboli:
  $('snap').onchange=e=>{snapOn=e.target.checked;};tb();}
 function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}">${VIEWS[k].n}</button>`).join('');
  $('flipbox').style.display=cur==='C'?'flex':'none';}
+$('tabs').ondblclick=e=>{const b=e.target.closest('button');if(!b||!WALLS.includes(b.dataset.v))return;const k=b.dataset.v,v=prompt('Nome della parete:',NM[k]);if(v&&v.trim()){push();S.names[k]=v.trim();VIEWS[k].n=S.names[k];buildTabs();}};
 $('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
 function go(v){cur=v;sel=null;selP=null;dim=null;tool=(tool==='sym'||tool==='pc')?'sel':tool;if(!vb[v])vb[v]=fitVB(v);buildTabs();tb();hint();setVB();drawAll();props();}
 function rebuild(){VIEWS=buildViews();inval();vb={};if(!VIEWS[cur])cur='D';go(cur);}
@@ -454,14 +457,15 @@ $('bnew').onclick=()=>{
  push();const n=newState();n.nid=S.nid;n.pid=S.pid;S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;rebuild();autosave();roomDlg();};
 function roomDlg(){const R=S.room;
  modal(`<h2>Stanza</h2><div class="f"><div><small>Larghezza (mm, parete in alto)</small><input type="number" id="rw" step="10" value="${R.x1-R.x0}"></div><div><small>Profondità (mm)</small><input type="number" id="rd" step="10" value="${R.y1-R.y0}"></div><div><small>Altezza (mm)</small><input type="number" id="rhh" step="10" value="${R.h}"></div></div>
- <p><small>Pareti da mostrare</small>${WALLS.map(k=>`<label class="ck"><input type="checkbox" data-w="${k}"${S.show[k]?' checked':''}> ${NM[k]}</label>`).join('')}</p>
- <p><small>Il soffitto (visto dal basso) e il pavimento (visto dall'alto) ci sono sempre. «Parete in alto» è quella in alto nella pianta vista dall'alto.</small></p>
+ <p><small>Pareti da mostrare (spunta) e nome (puoi cambiarlo: compare anche nella stampa)</small>${WALLS.map(k=>`<div class="f" style="align-items:center;margin:4px 0"><label class="ck" style="margin:0;flex:none"><input type="checkbox" data-w="${k}"${S.show[k]?' checked':''}></label><input type="text" data-n="${k}" value="${esc(NM[k])}" style="flex:1"><small style="margin:0;flex:none;width:120px">${POSN[k]}</small></div>`).join('')}</p>
+ <p><small>Il soffitto (visto dal basso) e il pavimento (visto dall'alto) ci sono sempre. La posizione a destra dice dove sta la parete nella pianta vista dall'alto.</small></p>
  <div class="acts"><button id="rc">Annulla</button><button id="rok" class="pri">Applica</button></div>`);
  $('rc').onclick=closeModal;
  $('rok').onclick=()=>{const w=Math.max(500,+$('rw').value||0),d=Math.max(500,+$('rd').value||0),h=Math.max(1000,+$('rhh').value||0);
   push();const ch=(w!==R.x1-R.x0)||(d!==R.y1-R.y0);
   S.room={x0:R.x0,y0:R.y0,x1:R.x0+w,y1:R.y0+d,h};if(ch)S.wr={};
   document.querySelectorAll('[data-w]').forEach(c=>{S.show[c.dataset.w]=c.checked;});
+  document.querySelectorAll('[data-n]').forEach(c=>{S.names[c.dataset.n]=c.value.trim()||DEFN[c.dataset.n];});
   closeModal();rebuild();autosave();};}
 $('broom').onclick=roomDlg;
 
@@ -500,7 +504,7 @@ function importDone(f,m){
  const have=Object.values(ann).some(a=>a.length)||S.pieces.length;
  const sk=Object.entries(m.skipped).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>k+' ('+v+')').join(', ');
  modal(`<h2>DXF letto</h2><p><b>${pcs.length}</b> elementi (${m.cnt.S} solidi, ${m.cnt.P} mesh). Ingombro <b>${ext.xmax-ext.xmin} × ${ext.ymax-ext.ymin} mm</b>, altezza massima ${Math.round(zmax)} mm.${sk?`<br><small>Tipi ignorati: ${esc(sk)}</small>`:''}</p>
- <p><small>Pareti con mobili (proposte già spuntate)</small>${cand.map(c=>`<label class="ck"><input type="checkbox" data-w="${c.k}"${prop.includes(c)?' checked':''}> ${NM[c.k]} — mobili per ${Math.round(c.cop)} mm</label>`).join('')}</p>
+ <p><small>Pareti con mobili (proposte già spuntate)</small>${cand.map(c=>`<label class="ck"><input type="checkbox" data-w="${c.k}"${prop.includes(c)?' checked':''}> Parete ${POSN[c.k]} — mobili per ${Math.round(c.cop)} mm</label>`).join('')}</p>
  ${have?`<label class="ck"><input type="checkbox" id="keep"> Tieni i simboli e le quote già disegnati</label><p><small>Sostituisco stanza e mobili con quelli del DXF. Se non spunti, anche simboli e quote ripartono da zero. Con Annulla torni al progetto di prima.</small></p>`:''}
  <div class="acts"><button id="ic">Annulla</button><button id="iok" class="pri">Importa</button></div>`);
  $('ic').onclick=closeModal;
@@ -509,6 +513,7 @@ function importDone(f,m){
   n.nome=f.name.replace(/\.dxf$/i,'');n.room={x0:ext.xmin,y0:ext.ymin,x1:ext.xmax,y1:ext.ymax,h:H};
   n.show={ymax:false,xmax:false,ymin:false,xmin:false};for(const k of chosen)n.show[k]=true;
   for(const c of cand)if(n.show[c.k])n.wr[c.k]=[Math.floor(c.umin),Math.ceil(c.umax)];
+  {let i=1;for(const k of [...WALLS.filter(k=>chosen.includes(k)),...WALLS.filter(k=>!chosen.includes(k))])n.names[k]='Parete '+i++;}
   n.pid=1;n.pieces=pcs.map(p=>({id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]}));
   n.nid=S.nid;if(keep){for(const k in old)n.ann[k]=old[k];}
   S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';closeModal();cur='D';rebuild();autosave();};}
@@ -519,8 +524,7 @@ addEventListener('drop',e=>{$('dz').style.display='none';const f=e.dataTransfer&
  if(/\.dxf$/i.test(f.name)||/\.dwg$/i.test(f.name))importDxf(f);else if(/\.json$/i.test(f.name))f.text().then(openText);});
 
 /* ====================== avvio ====================== */
-{try{const s=localStorage.getItem(KEY);if(s)loadState(JSON.parse(s));}catch(e){S=newState();ann=S.ann;}
- $('pn').value=S.nome;$('flip').checked=S.flip;}
+{$('pn').value=S.nome;$('flip').checked=S.flip;}
 buildTools();VIEWS=buildViews();cur=VIEWS.D?'D':Object.keys(VIEWS)[0];cur=VIEWS.ymax?'ymax':cur;go(cur);
 window.__t={get S(){return S;},get cur(){return cur;},get ann(){return ann;},importDxf,workerMain};
 </script></body></html>
