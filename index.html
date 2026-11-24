@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schemi impianti cucina</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:14px system-ui,Segoe UI,sans-serif;color:#1d2433;background:#eef0f4;display:flex;flex-direction:column;height:100vh}
+header{display:flex;gap:6px;align-items:center;padding:8px 12px;background:#fff;border-bottom:1px solid #d5d9e0;flex-wrap:wrap}
+header h1{font-size:15px;margin:0 6px 0 0;white-space:nowrap}
+#pn{font:inherit;font-weight:600;border:1px solid transparent;border-radius:5px;padding:4px 6px;width:190px;background:#f3f5f9}
+#pn:focus{border-color:#1f6feb;outline:0;background:#fff}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+button{font:inherit;border:1px solid #c5cad3;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;color:inherit}
+button:hover{background:#f1f4f9}
+button.on{background:#1f6feb;color:#fff;border-color:#1f6feb}
+button.danger{color:#b42318;border-color:#e4b4af}
+button.pri{background:#1f6feb;color:#fff;border-color:#1f6feb}
+.sp{flex:1}
+main{flex:1;display:flex;min-height:0}
+#tools{width:205px;background:#fff;border-right:1px solid #d5d9e0;padding:8px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+#tools h3{margin:10px 0 2px;font-size:11px;text-transform:uppercase;color:#6b7280;letter-spacing:.05em}
+#tools button{text-align:left;display:flex;align-items:center;gap:8px}
+.dot{width:20px;height:20px;border-radius:50%;border:2px solid;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#fff;flex:none}
+.bx{width:20px;height:14px;border:2px solid #b8860b;background:#fdf6e3;flex:none;border-radius:2px}
+#cv{flex:1;position:relative;min-width:0}
+#svg{width:100%;height:100%;background:#fff;touch-action:none;user-select:none;display:block}
+#svg.cross{cursor:crosshair}
+#hint{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:6px 14px;border-radius:20px;font-size:13px;pointer-events:none;max-width:90%;text-align:center;opacity:.92}
+#st{position:absolute;left:8px;bottom:8px;background:rgba(255,255,255,.92);padding:3px 8px;border-radius:5px;font-size:12px;color:#444}
+#zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:4px}
+#zoom button{width:34px;height:34px;padding:0;font-size:18px}
+#props{width:235px;background:#fff;border-left:1px solid #d5d9e0;padding:10px;font-size:13px;overflow:auto}
+#props input[type=text],#props input[type=number],#props textarea{width:100%;font:inherit;padding:5px;border:1px solid #c5cad3;border-radius:5px;margin:3px 0 8px}
+#props small{color:#6b7280;line-height:1.4;display:block}
+#props .row{display:flex;gap:6px}
+#props select{width:100%;font:inherit;padding:5px;border:1px solid #c5cad3;border-radius:5px;margin:3px 0 8px;background:#fff}
+#props .row>div{flex:1;min-width:0}
+#props .row button{flex:1}
+label.ck{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px}
+g[data-id],g[data-pid]{cursor:pointer}
+#ovl{position:fixed;inset:0;background:rgba(20,28,40,.45);display:none;align-items:center;justify-content:center;z-index:50}
+#ovl .box{background:#fff;border-radius:10px;padding:18px 20px;width:min(460px,92vw);max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#ovl h2{margin:0 0 10px;font-size:16px}
+#ovl .f{display:flex;gap:10px;margin:6px 0}
+#ovl .f>div{flex:1}
+#ovl input[type=text],#ovl input[type=number]{width:100%;font:inherit;padding:6px;border:1px solid #c5cad3;border-radius:5px}
+#ovl small{color:#6b7280;display:block;margin-bottom:2px}
+#ovl .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#ovl p{margin:6px 0;line-height:1.45}
+.bar{height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden;margin:12px 0}
+.bar i{display:block;height:100%;width:0;background:#1f6feb;transition:width .15s}
+#dz{position:fixed;inset:0;border:4px dashed #1f6feb;background:rgba(31,111,235,.08);display:none;align-items:center;justify-content:center;font-size:22px;color:#1f6feb;z-index:40;pointer-events:none}
+#print{display:none}
+@media print{
+ body>*:not(#print){display:none!important}
+ body{display:block;height:auto;background:#fff}
+ #print{display:block}
+ .page{page-break-after:always}
+ .page h2{font:600 12pt system-ui;margin:0 0 4mm}
+ .page svg{width:100%;height:170mm}
+ @page{size:A4 landscape;margin:8mm}
+}
+</style></head><body>
+<header>
+ <h1>Schemi impianti</h1><input id="pn" title="Nome del progetto" spellcheck="false">
+ <div class="tabs" id="tabs"></div>
+ <label class="ck" id="flipbox" style="display:none"><input type="checkbox" id="flip"> Specchia (vista reale dal basso)</label>
+ <span class="sp"></span>
+ <label class="ck" title="Più bassa = mobili più leggeri sullo sfondo">Mobili <input type="range" id="op" min="15" max="100" value="70" style="width:70px"></label>
+ <button id="bnew" title="Nuovo progetto, stanza vuota">Nuovo</button>
+ <button id="broom" title="Dimensioni della stanza e pareti da mostrare">Stanza…</button>
+ <button id="bdxf" class="pri" title="Legge un DXF esportato da Metron">Importa DXF</button><input type="file" id="fdxf" accept=".dxf" hidden>
+ <button id="undo" title="Ctrl+Z">↶ Annulla</button>
+ <button id="clr" class="danger" title="Cancella simboli e quote della vista">Svuota vista</button>
+ <button id="svgb">Scarica SVG</button>
+ <button id="save">Salva</button>
+ <button id="open">Apri</button><input type="file" id="file" accept=".json" hidden>
+ <button id="prt">Stampa / PDF</button>
+</header>
+<main>
+ <aside id="tools"></aside>
+ <div id="cv"><svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="gp"></g><g id="ga"></g><g id="go"></g></svg>
+  <div id="hint"></div><div id="st"></div>
+  <div id="zoom"><button id="zi" title="Ingrandisci">+</button><button id="zo" title="Riduci">−</button><button id="fit" title="Mostra tutto" style="font-size:12px">Tutto</button></div></div>
+ <aside id="props"></aside>
+</main>
+<div id="ovl"><div class="box" id="box"></div></div>
+<div id="dz">Rilascia qui un file DXF o un lavoro salvato (.json)</div>
+<div id="print"></div>
+<script>
+'use strict';
+/* ====================== lettore DXF (gira in un worker, a flusso) ====================== */
+function workerMain(){
+ function satDec(s){let o='',skip=false;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(skip){skip=false;continue;}
+  if(c===0x20)o+=' ';else if(c===0x40)o+='_';else if(c===0x5F)o+='@';
+  else if(c>=0x41&&c<0x5F){o+=String.fromCharCode(0x41+(0x5E-c));skip=(c===0x5E);}
+  else o+=String.fromCharCode(c^0x5F);}return o;}
+ function solidPts(lines){
+  const recs=lines.map(satDec).join('').split('#');let pts=[],M=null;
+  for(const r of recs){const p=r.split(/\s+/).filter(Boolean);if(!p.length)continue;
+   if(p[0]==='transform'){const m=p.slice(3,16).map(Number);if(m.length===13&&m.every(isFinite))M=m;}
+   else if(p[0]==='point'){const q=p.slice(4,7).map(Number);if(q.length===3&&q.every(isFinite))pts.push(q);}}
+  if(!pts.length)return null;
+  if(M){const t=M.slice(9,12),s=M[12];pts=pts.map(([x,y,z])=>[0,1,2].map(j=>(x*M[j]+y*M[3+j]+z*M[6+j])*s+t[j]));}
+  return pts;}
+ onmessage=async ev=>{
+  const file=ev.data;
+  try{
+   const rd=file.stream().getReader(),dec=new TextDecoder('utf-8'),total=file.size||1;
+   let got=0,carry='',have=false,code=0,lastPost=0,nlines=0;
+   const out=[],skipped={},cnt={S:0,P:0};
+   let inEnt=false,secWait=false,cur=null,sat=null,bb=null,poly=null,vx=0,vy=0,vz=0,vf=0;
+   const xs=[0,0,0,0],ys=[0,0,0,0];
+   const fresh=()=>[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
+   const ext=(b,x,y,z)=>{if(x<b[0])b[0]=x;if(y<b[1])b[1]=y;if(z<b[2])b[2]=z;if(x>b[3])b[3]=x;if(y>b[4])b[4]=y;if(z>b[5])b[5]=z;};
+   const push=(b,t)=>{if(b&&isFinite(b[0])&&isFinite(b[3])){out.push([Math.round(b[0]),Math.round(b[1]),Math.round(b[2]),Math.round(b[3]),Math.round(b[4]),Math.round(b[5]),t]);cnt[t]++;}};
+   function endEnt(){
+    if(cur==='3DSOLID'){const p=sat&&sat.length?solidPts(sat):null;if(p){const b=fresh();for(const q of p)ext(b,q[0],q[1],q[2]);push(b,'S');}sat=null;}
+    else if(cur==='POLYLINE'){if(poly)poly.pf=(poly.flags&64)!==0;}
+    else if(cur==='VERTEX'){if(poly&&(!poly.pf||(vf&64)))ext(poly.bb,vx,vy,vz);}
+    else if(cur==='MESH'||cur==='3DFACE'){push(bb,'P');bb=null;}
+    cur=null;}
+   function endPoly(){if(poly){push(poly.bb,'P');poly=null;}}
+   function start(t){
+    if(t==='POLYLINE'){endPoly();poly={flags:0,pf:false,bb:fresh()};cur='POLYLINE';}
+    else if(t==='VERTEX'){vx=vy=vz=0;vf=0;cur='VERTEX';}
+    else if(t==='SEQEND'){endPoly();cur=null;}
+    else if(t==='3DSOLID'){cur=t;sat=[];}
+    else if(t==='MESH'||t==='3DFACE'){cur=t;bb=fresh();}
+    else{cur=null;skipped[t]=(skipped[t]||0)+1;}}
+   function handle(c,v){
+    if(c===0){const t=v.trim();
+     if(t==='SECTION'){endEnt();endPoly();inEnt=false;secWait=true;return;}
+     if(t==='ENDSEC'){endEnt();endPoly();inEnt=false;return;}
+     if(inEnt){endEnt();start(t);}return;}
+    if(!inEnt){if(c===2&&secWait){secWait=false;inEnt=(v.trim()==='ENTITIES');}return;}
+    if(cur==='3DSOLID'){if(c===1||c===3)sat.push(v);}
+    else if(cur==='VERTEX'){if(c===10)vx=parseFloat(v);else if(c===20)vy=parseFloat(v);else if(c===30)vz=parseFloat(v);else if(c===70)vf=parseInt(v,10)||0;}
+    else if(cur==='POLYLINE'){if(c===70&&poly)poly.flags=parseInt(v,10)||0;}
+    else if(cur==='MESH'||cur==='3DFACE'){
+     if(c>=10&&c<=13)xs[c-10]=parseFloat(v);else if(c>=20&&c<=23)ys[c-20]=parseFloat(v);
+     else if(c>=30&&c<=33){const z=parseFloat(v),i=c-30;if(cur==='MESH'&&i!==0)return;ext(bb,xs[i],ys[i],z);}}}
+   function run(lines){
+    for(let i=0;i<lines.length;i++){let l=lines[i];
+     if(l.charCodeAt(l.length-1)===13)l=l.slice(0,-1);
+     if(!have){code=parseInt(l,10);have=true;}else{have=false;handle(code,l);}}
+    nlines+=lines.length;}
+   for(;;){const r=await rd.read();if(r.done)break;got+=r.value.length;
+    const lines=(carry+dec.decode(r.value,{stream:true})).split('\n');carry=lines.pop();run(lines);
+    const now=Date.now();if(now-lastPost>150){lastPost=now;postMessage({type:'p',pct:got/total,n:out.length});}}
+   carry+=dec.decode();if(carry)run([carry]);endEnt();endPoly();
+   postMessage({type:'done',pieces:out,skipped,cnt,lines:nlines});
+  }catch(e){postMessage({type:'err',msg:String(e&&e.message||e)});}
+ };
+}
+
+/* ====================== stato ====================== */
+const BAND=800,MIN_PARETE=900,KEY='schemi-impianti-v2';
+const NM={ymax:'Parete in alto',xmax:'Parete a destra',ymin:'Parete in basso',xmin:'Parete a sinistra'};
+const WALLS=['ymax','xmax','ymin','xmin'];
+const $=id=>document.getElementById(id),svg=$('svg');
+function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},show:{ymax:true,xmax:true,ymin:true,xmin:true},wr:{},pieces:[],
+ ann:{ymax:[],xmax:[],ymin:[],xmin:[],C:[],D:[]},flip:false,ref:{h:'L',v:'p'},nid:1,pid:1};}
+let S=newState(),ann=S.ann,VIEWS={},cur='D',tool='sel',sym='P',pre='B',snapOn=true,sel=null,selP=null,hist=[],vb={},dim=null,mouse=null,drag=null,OP=.7;
+const SYM={
+ P:['Presa','P','#c0392b','c',140,140],PD:['Presa doppia','PP','#c0392b','r',220,120],IN:['Interruttore','I','#7c3aed','r',100,100],LU:['Punto luce','L','#b8860b','c',140,140],
+ AF:['Acqua fredda','AF','#1f6feb','c',140,140],AC:['Acqua calda','AC','#d62828','c',140,140],SC:['Scarico','S','#555555','c',140,140],GA:['Gas','G','#e67e22','c',140,140],
+ CA:['Aspirazione cappa','CA','#2a9d8f','c',140,140],EL:['Allaccio elettrodomestico','E','#8e44ad','r',160,120],X:['Elemento libero','','#374151','r',200,200]};
+const SHAPES={c:'Cerchio',r:'Rettangolo',t:'Triangolo'};
+const PRE={B:{n:'Base',w:600,d:600,h:870,z:0},PE:{n:'Pensile',w:600,d:350,h:720,z:1400},CO:{n:'Colonna',w:600,d:600,h:2100,z:0},X:{n:'Mobile libero',w:600,d:600,h:600,z:0}};
+const STYLE='<style>.ps{fill:rgba(60,95,160,.06);stroke:rgba(40,70,130,.35);stroke-width:.6;vector-effect:non-scaling-stroke}.pm{fill:rgba(200,120,40,.07);stroke:rgba(190,110,30,.4);stroke-width:.6;vector-effect:non-scaling-stroke}.pu{fill:rgba(40,150,90,.09);stroke:rgba(30,130,80,.55);stroke-width:.8;vector-effect:non-scaling-stroke}.sl{fill:rgba(31,111,235,.14)!important;stroke:#1f6feb!important;stroke-width:1.6!important}.fr{fill:none;stroke:#222;stroke-width:1.5;vector-effect:non-scaling-stroke}.fl{stroke:#222;stroke-width:2;vector-effect:non-scaling-stroke}text{font-family:system-ui,Segoe UI,sans-serif}</style>';
+
+/* ====================== viste ====================== */
+function buildViews(){
+ const R=S.room,H=R.h,o={};
+ const D={
+  ymax:{d:[R.x0,R.x1],f:p=>p.y1>R.y1-BAND,r:p=>[p.x0,p.z0,p.x1,p.z1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:u0,x1:u1,y0:R.y1-d,y1:R.y1,z0,z1})},
+  xmax:{d:[-R.y1,-R.y0],f:p=>p.x1>R.x1-BAND,r:p=>[-p.y1,p.z0,-p.y0,p.z1],mv:(p,a,b)=>{p.y0-=a;p.y1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:-u1,y1:-u0,x0:R.x1-d,x1:R.x1,z0,z1})},
+  ymin:{d:[-R.x1,-R.x0],f:p=>p.y0<R.y0+BAND,r:p=>[-p.x1,p.z0,-p.x0,p.z1],mv:(p,a,b)=>{p.x0-=a;p.x1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:-u1,x1:-u0,y0:R.y0,y1:R.y0+d,z0,z1})},
+  xmin:{d:[R.y0,R.y1],f:p=>p.x0<R.x0+BAND,r:p=>[p.y0,p.z0,p.y1,p.z1],mv:(p,a,b)=>{p.y0+=a;p.y1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:u0,y1:u1,x0:R.x0,x1:R.x0+d,z0,z1})}};
+ for(const k of WALLS)if(S.show[k]){const d=S.wr[k]||D[k].d;
+  o[k]={n:NM[k],s:'vista frontale della parete '+NM[k].replace('Parete ','')+' nella pianta',lab:'h',f:D[k].f,r:D[k].r,mv:D[k].mv,mk:D[k].mk,fr:[d[0],0,d[1],H]};}
+ const plan={lab:'y',f:()=>true,r:p=>[p.x0,p.y0,p.x1,p.y1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.y0+=b;p.y1+=b;},fr:[R.x0,R.y0,R.x1,R.y1],
+  mkp:(u,v,w,d,z0,h)=>({x0:u-w/2,x1:u+w/2,y0:v-d/2,y1:v+d/2,z0,z1:z0+h})};
+ o.C={n:'Soffitto',s:'vista dal basso (planimetria soffitto)',...plan};
+ o.D={n:'Pavimento',s:"vista dall'alto",...plan};
+ return o;}
+let cache={},ec={};
+function inval(){cache={};ec={};}
+const U=(v,u)=>(v==='C'&&S.flip)?-u:u;
+function rects(v){if(cache[v])return cache[v];const V=VIEWS[v];return cache[v]=S.pieces.filter(V.f).map(p=>V.r(p).concat([p]));}
+function edgesOf(v,ex){const s=new Set(),t=new Set(),V=VIEWS[v];
+ for(const p of S.pieces){if(p.id===ex||!V.f(p))continue;const r=V.r(p);s.add(Math.round(r[0]));s.add(Math.round(r[2]));t.add(Math.round(r[1]));t.add(Math.round(r[3]));}
+ const f=V.fr;[f[0],f[2]].forEach(x=>s.add(x));[f[1],f[3]].forEach(x=>t.add(x));return [[...s],[...t]];}
+function E(v){return ec[v]||(ec[v]=edgesOf(v,null));}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function piecesSVG(v,live){
+ const V=VIEWS[v],f=V.fr;let s='';
+ const fx0=Math.min(U(v,f[0]),U(v,f[2])),fw=Math.abs(f[2]-f[0]);
+ s+=`<rect class="fr" x="${fx0}" y="${-f[3]}" width="${fw}" height="${f[3]-f[1]}"/><g opacity="${OP}">`;
+ for(const q of rects(v)){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
+  const cl=(live&&selP===p.id)?'sl':(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
+  s+=`<rect class="${cl}" ${live?`data-pid="${p.id}" `:''}x="${x.toFixed(1)}" y="${(-q[3]).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`;}
+ s+='</g>';
+ if(V.lab==='h')s+=`<line class="fl" x1="${fx0}" x2="${fx0+fw}" y1="0" y2="0"/>`;
+ return s;}
+function symSVG(a,v,hl){const x=U(v,a.u),y=-a.v,c=a.color||SYM[a.k][2],w=a.w,h=a.h,code=a.code||'';
+ let sh;if(a.shape==='c')sh=`<ellipse rx="${w/2}" ry="${h/2}" fill="#fff" stroke="${c}" stroke-width="7"/>`;
+ else if(a.shape==='t')sh=`<polygon points="0,${-h/2} ${w/2},${h/2} ${-w/2},${h/2}" fill="#fff" stroke="${c}" stroke-width="7" stroke-linejoin="round"/>`;
+ else sh=`<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="${c}" stroke-width="7"/>`;
+ const fs=Math.max(24,Math.min(h*.5,(w*.8)/Math.max(1,code.length*.62),70)),ty=a.shape==='t'?h/6:0;
+ return `<g data-id="${a.id}" transform="translate(${x},${y})"><rect x="${-w/2-25}" y="${-h/2-25}" width="${w+50}" height="${h+50}" fill="transparent"/>${hl?`<rect x="${-w/2-18}" y="${-h/2-18}" width="${w+36}" height="${h+36}" fill="none" stroke="#1f6feb" stroke-width="6" stroke-dasharray="14 10"/>`:''}${sh}<text y="${ty+2}" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="${c}">${esc(code)}</text>${a.label?`<text y="${h/2+52}" text-anchor="middle" font-size="56" fill="#222" stroke="#fff" stroke-width="12" paint-order="stroke">${esc(a.label)}</text>`:''}</g>`;}
+function anchor(v,s,k,ax){const dr=(v==='C'&&S.flip)?-1:1;
+ if(ax==='h')return s.u+(k==='r'?1:k==='l'?-1:0)*dr*s.w/2;
+ return s.v+(k==='t'?1:k==='b'?-1:0)*s.h/2;}
+function resolve(v,d){for(const k of ['r1','r2']){const r=d[k];if(!r)continue;const s=ann[v].find(a=>a.id===r.id&&a.t==='s');if(!s){d[k]=null;continue;}const i=k==='r1';
+  if(d.ax==='h'){const p=anchor(v,s,r.k,'h');if(i){d.a=p;d.p1=s.v;}else{d.b=p;d.p2=s.v;}}else{const p=anchor(v,s,r.k,'v');if(i){d.a=p;d.p1=s.u;}else{d.b=p;d.p2=s.u;}}}}
+function dimSVG(d,v,hl,pv){
+ const len=Math.round(Math.abs(d.b-d.a)),t=d.txt||len,col=hl?'#1f6feb':'#111';let s='';
+ const tk=(x,y)=>`<line x1="${x-28}" y1="${y+28}" x2="${x+28}" y2="${y-28}" stroke="${col}" stroke-width="5"/>`;
+ if(d.ax==='h'){const ya=-d.p1,yb=-d.p2,yo=-d.off,xa=U(v,d.a),xb=U(v,d.b),sa=Math.sign(yo-ya)||1,sb=Math.sign(yo-yb)||1;
+  s=`<line x1="${xa}" y1="${ya}" x2="${xa}" y2="${yo+sa*35}" stroke="${col}" stroke-width="3"/><line x1="${xb}" y1="${yb}" x2="${xb}" y2="${yo+sb*35}" stroke="${col}" stroke-width="3"/><line x1="${xa}" y1="${yo}" x2="${xb}" y2="${yo}" stroke="${col}" stroke-width="4"/>${tk(xa,yo)}${tk(xb,yo)}<text x="${(xa+xb)/2}" y="${yo-22}" text-anchor="middle" font-size="72" fill="${col}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(t)}</text><line x1="${xa}" y1="${yo}" x2="${xb}" y2="${yo}" stroke="transparent" stroke-width="60"/>`;}
+ else{const xa=U(v,d.p1),xb=U(v,d.p2),xo=U(v,d.off),ya=-d.a,yb=-d.b,sa=Math.sign(xo-xa)||1,sb=Math.sign(xo-xb)||1;
+  s=`<line x1="${xa}" y1="${ya}" x2="${xo+sa*35}" y2="${ya}" stroke="${col}" stroke-width="3"/><line x1="${xb}" y1="${yb}" x2="${xo+sb*35}" y2="${yb}" stroke="${col}" stroke-width="3"/><line x1="${xo}" y1="${ya}" x2="${xo}" y2="${yb}" stroke="${col}" stroke-width="4"/>${tk(xo,ya)}${tk(xo,yb)}<text transform="translate(${xo-22},${(ya+yb)/2}) rotate(-90)" text-anchor="middle" font-size="72" fill="${col}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(t)}</text><line x1="${xo}" y1="${ya}" x2="${xo}" y2="${yb}" stroke="transparent" stroke-width="60"/>`;}
+ return pv?`<g opacity=".7">${s}</g>`:`<g data-id="${d.id}">${s}</g>`;}
+function annSVG(v,live){let s='';
+ for(const a of ann[v])if(a.t==='d')resolve(v,a);
+ const ord={d:0,x:1,s:2};
+ for(const a of ann[v].slice().sort((p,q)=>ord[p.t]-ord[q.t])){const hl=live&&sel===a.id;
+ if(a.t==='s')s+=symSVG(a,v,hl);else if(a.t==='d')s+=dimSVG(a,v,hl);
+ else s+=`<g data-id="${a.id}"><text x="${U(v,a.u)}" y="${-a.v}" font-size="80" fill="${hl?'#1f6feb':'#111'}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(a.txt).split('\n').map((l,i)=>`<tspan x="${U(v,a.u)}" dy="${i?90:0}">${esc(l)}</tspan>`).join('')}</text></g>`;}
+ return s;}
+function fitVB(v){const f=VIEWS[v].fr,m=250,x0=Math.min(U(v,f[0]),U(v,f[2]));return [x0-m,-f[3]-m,Math.abs(f[2]-f[0])+2*m,f[3]-f[1]+2*m];}
+function setVB(){svg.setAttribute('viewBox',vb[cur].join(' '));}
+function drawAll(){$('gp').innerHTML=STYLE+piecesSVG(cur,true);drawAnn();drawOv();}
+function drawAnn(){$('ga').innerHTML=annSVG(cur,true);}
+function pt(e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return [q.x,q.y];}
+function toNat(q){return [(cur==='C'&&S.flip)?-q[0]:q[0],-q[1]];}
+function snap(u,v,ex){if(!snapOn)return [u,v,null];const tol=10/svg.getScreenCTM().a,e=E(cur),A=ann[cur].filter(a=>a.t==='s'&&a.id!==ex);
+ for(const a of A)if(Math.hypot(a.u-u,a.v-v)<tol*1.8)return [a.u,a.v,a.id];
+ let bu=u,bv=v,du=tol,dv=tol;
+ for(const x of e[0].concat(A.flatMap(a=>[a.u,a.u-a.w/2,a.u+a.w/2]))){const d=Math.abs(x-u);if(d<du){du=d;bu=x;}}
+ for(const y of e[1].concat(A.flatMap(a=>[a.v,a.v-a.h/2,a.v+a.h/2]))){const d=Math.abs(y-v);if(d<dv){dv=d;bv=y;}}
+ return [bu,bv,null];}
+function snapRect(r,ex){if(!snapOn)return [0,0];const tol=10/svg.getScreenCTM().a,e=edgesOf(cur,ex);let su=0,sv=0,bu=tol,bv=tol;
+ for(const x of e[0])for(const k of [r[0],r[2]]){const d=x-k;if(Math.abs(d)<bu){bu=Math.abs(d);su=d;}}
+ for(const y of e[1])for(const k of [r[1],r[3]]){const d=y-k;if(Math.abs(d)<bv){bv=Math.abs(d);sv=d;}}
+ return [su,sv];}
+const HINT={sel:'Clicca un simbolo o una quota per selezionarla e trascinarla. Trascina lo sfondo per spostare la vista.',txt:'Clicca nel disegno dove vuoi scrivere.',mob:'Clicca un mobile per selezionarlo: trascinalo o cambia le misure a destra. Trascina lo sfondo per spostare la vista.'};
+function hint(){let h;if(tool==='sym')h=`Clicca nel disegno per mettere «${SYM[sym][0]}» (oppure trascinalo dalla lista). Esc per annullare.`;
+ else if(tool==='pc')h=`Clicca nel disegno dove vuoi il mobile «${PRE[pre].n}» (oppure trascinalo dalla lista). Poi cambia le misure a destra.`;
+ else if(tool==='dim')h=!dim?'Quota — 1) clicca il primo punto (bordo di un mobile o un simbolo).':!dim.p2?'Quota — 2) clicca il secondo punto.':'Quota — 3) clicca dove vuoi la linea di quota.';
+ else h=HINT[tool];$('hint').textContent=h;svg.classList.toggle('cross',tool!=='sel'&&tool!=='mob');}
+function drawOv(){let s='';
+ if(mouse&&tool!=='sel'&&tool!=='mob'){const [u,v]=mouse;s+=`<circle cx="${U(cur,u)}" cy="${-v}" r="20" fill="none" stroke="#1f6feb" stroke-width="4"/>`;}
+ if(dim&&mouse){if(dim.p1&&!dim.p2)s+=`<circle cx="${U(cur,dim.p1[0])}" cy="${-dim.p1[1]}" r="20" fill="#1f6feb"/><line x1="${U(cur,dim.p1[0])}" y1="${-dim.p1[1]}" x2="${U(cur,mouse[0])}" y2="${-mouse[1]}" stroke="#1f6feb" stroke-width="3" stroke-dasharray="12 8"/>`;const d=dimDraft();if(d)s+=dimSVG(d,cur,false,true);}
+ $('go').innerHTML=s;}
+function dimDraft(){if(!dim||!dim.p2||!mouse)return null;return dim.ax==='h'?{ax:'h',a:dim.p1[0],b:dim.p2[0],p1:dim.p1[1],p2:dim.p2[1],off:mouse[1]}:{ax:'v',a:dim.p1[1],b:dim.p2[1],p1:dim.p1[0],p2:dim.p2[0],off:mouse[0]};}
+
+/* ====================== storia, salvataggio automatico ====================== */
+function snapJ(){return JSON.stringify({room:S.room,show:S.show,wr:S.wr,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
+function push(){hist.push(snapJ());if(hist.length>60)hist.shift();}
+function undo(){if(!hist.length)return;Object.assign(S,JSON.parse(hist.pop()));ann=S.ann;sel=selP=null;$('pn').value=S.nome;rebuild();autosave();}
+function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,show:S.show,wr:S.wr,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
+function autosave(){try{localStorage.setItem(KEY,stateText());}catch(e){}}
+function loadState(d){
+ if(!d||d.v!==2||!Array.isArray(d.pieces)||!d.room||!d.ann)throw new Error('formato');
+ const n=newState();S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,show:Object.assign(n.show,d.show||{}),wr:d.wr||{},pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
+ for(const v in S.ann)for(const a of S.ann[v]){if(a.t==='s'){const s=SYM[a.k];if(s&&!a.shape){a.shape=s[3];a.w=s[4];a.h=s[5];a.code=s[1];a.color=s[2];}}if(a.t==='d')for(const k of ['r1','r2'])if(typeof a[k]==='number')a[k]={id:a[k],k:'c'};}
+ S.nid=Math.max(d.nid||1,1+Math.max(0,...Object.values(S.ann).flat().map(a=>a.id)));
+ S.pid=Math.max(d.pid||1,1+Math.max(0,...S.pieces.map(p=>p.id||0)));
+ ann=S.ann;$('flip').checked=S.flip;$('pn').value=S.nome;sel=selP=null;}
+
+/* ====================== interazione ====================== */
+function find(id){return ann[cur].find(a=>a.id===id);}
+function findP(id){return S.pieces.find(p=>p.id===id);}
+function status(u,v){const V=VIEWS[cur],f=V.fr;$('st').textContent=V.lab==='h'?`da sinistra = ${Math.round(u-f[0])}   altezza = ${Math.round(v)} mm`:`da sinistra = ${Math.round(u-f[0])}   dall'alto della pianta = ${Math.round(f[3]-v)} mm`;}
+function placeSym(k,u,v){push();const d=SYM[k];const a={id:S.nid++,t:'s',k,u,v,shape:d[3],w:d[4],h:d[5],code:d[1],color:d[2],label:VIEWS[cur].lab==='h'?'h '+Math.round(v):'',auto:VIEWS[cur].lab==='h'};ann[cur].push(a);sel=a.id;selP=null;tool='sel';tb();hint();drawAll();props();autosave();}
+function placePiece(k,u,v){const P=PRE[k],V=VIEWS[cur];let p;push();
+ if(V.lab==='h'){const z0=k==='X'?Math.max(0,v-P.h/2):P.z;p=V.mk(u-P.w/2,u+P.w/2,z0,z0+P.h,P.d);}
+ else p=V.mkp(u,v,P.w,P.d,P.z,P.h);
+ p.id=S.pid++;p.t='M';p.nm=P.n;
+ const r=V.r(p),sh=snapRect(r,null);if(V.lab==='h')V.mv(p,sh[0],sh[1]);else V.mv(p,sh[0],sh[1]);
+ S.pieces.push(p);selP=p.id;sel=null;tool='mob';inval();tb();hint();drawAll();props();autosave();}
+svg.addEventListener('contextmenu',e=>e.preventDefault());
+svg.addEventListener('wheel',e=>{e.preventDefault();zoomAt(pt(e),e.deltaY>0?1.15:1/1.15);},{passive:false});
+function zoomAt(q,s){const b=vb[cur];vb[cur]=[q[0]-(q[0]-b[0])*s,q[1]-(q[1]-b[1])*s,b[2]*s,b[3]*s];setVB();}
+function centre(){const b=vb[cur];return [b[0]+b[2]/2,b[1]+b[3]/2];}
+$('zi').onclick=()=>zoomAt(centre(),1/1.3);$('zo').onclick=()=>zoomAt(centre(),1.3);
+svg.addEventListener('pointerdown',e=>{
+ const n=toNat(pt(e));
+ if(e.button===1||e.button===2){drag={pan:true,x:e.clientX,y:e.clientY,b:vb[cur].slice()};svg.setPointerCapture(e.pointerId);return;}
+ if(e.button!==0)return;
+ if(tool==='sel'){const g=e.target.closest('[data-id]');selP=null;
+  if(g){sel=+g.dataset.id;drag={mv:sel,pushed:false};svg.setPointerCapture(e.pointerId);}
+  else{sel=null;drag={pan:true,x:e.clientX,y:e.clientY,b:vb[cur].slice()};svg.setPointerCapture(e.pointerId);}
+  drawAll();props();return;}
+ if(tool==='mob'){const g=e.target.closest('[data-pid]');sel=null;
+  if(g){selP=+g.dataset.pid;const p=findP(selP),r=VIEWS[cur].r(p);drag={pc:selP,s:n,r,ad:[0,0],pushed:false};svg.setPointerCapture(e.pointerId);}
+  else{selP=null;drag={pan:true,x:e.clientX,y:e.clientY,b:vb[cur].slice()};svg.setPointerCapture(e.pointerId);}
+  drawAll();props();return;}
+ if(tool==='sym'){const [u,v]=snap(n[0],n[1]);placeSym(sym,u,v);return;}
+ if(tool==='pc'){placePiece(pre,n[0],n[1]);return;}
+ if(tool==='txt'){const [u,v]=snap(n[0],n[1]);push();const a={id:S.nid++,t:'x',u,v,txt:'Testo'};ann[cur].push(a);sel=a.id;tool='sel';tb();hint();drawAnn();props();autosave();return;}
+ if(tool==='dim'){
+  if(!dim){const [u,v,r]=snap(n[0],n[1]);dim={p1:[u,v],r1:r?{id:r,k:'c'}:null};}
+  else if(!dim.p2){const [u,v,r]=snap(n[0],n[1]);const du=Math.abs(u-dim.p1[0]),dv=Math.abs(v-dim.p1[1]);if(du<1&&dv<1)return;dim.p2=[u,v];dim.r2=r?{id:r,k:'c'}:null;dim.ax=du>=dv?'h':'v';}
+  else{const d=dimDraft();d.id=S.nid++;d.t='d';d.r1=dim.r1;d.r2=dim.r2;push();ann[cur].push(d);sel=d.id;dim=null;props();autosave();}
+  hint();drawAnn();drawOv();}
+});
+svg.addEventListener('pointermove',e=>{
+ const q=pt(e),n=toNat(q);status(n[0],n[1]);
+ if(drag&&drag.pan){const k=svg.getScreenCTM().a;vb[cur]=[drag.b[0]-(e.clientX-drag.x)/k,drag.b[1]-(e.clientY-drag.y)/k,drag.b[2],drag.b[3]];setVB();return;}
+ if(drag&&drag.pc){const p=findP(drag.pc);if(p){if(!drag.pushed){push();drag.pushed=true;}
+   let du=n[0]-drag.s[0],dv=n[1]-drag.s[1];const r=drag.r,sh=snapRect([r[0]+du,r[1]+dv,r[2]+du,r[3]+dv],p.id);du+=sh[0];dv+=sh[1];
+   VIEWS[cur].mv(p,du-drag.ad[0],dv-drag.ad[1]);drag.ad=[du,dv];inval();drawAll();updPieceFields();}return;}
+ const [u,v]=(tool==='dim'&&dim&&dim.p2)?n:snap(n[0],n[1],drag&&drag.mv);mouse=[u,v];
+ if(drag&&drag.mv){const a=find(drag.mv);if(a){if(!drag.pushed){push();drag.pushed=true;}
+   if(a.t==='d'){if(a.ax==='h')a.off=n[1];else a.off=n[0];}
+   else{a.u=u;a.v=v;syncLabel(a);}
+   drawAnn();updPos();}}
+ drawOv();});
+svg.addEventListener('pointerup',()=>{if(drag&&(drag.mv||drag.pc))autosave();drag=null;});
+svg.addEventListener('pointerleave',()=>{mouse=null;drawOv();});
+svg.addEventListener('dragover',e=>{e.preventDefault();});
+svg.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();const k=e.dataTransfer.getData('text/plain'),n=toNat(pt(e));
+ if(k.startsWith('pc:')){placePiece(k.slice(3),n[0],n[1]);return;}
+ if(!SYM[k])return;const [u,v]=snap(n[0],n[1]);placeSym(k,u,v);});
+addEventListener('keydown',e=>{
+ if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+ if($('ovl').style.display==='flex')return;
+ if(e.key==='Escape'){dim=null;tool='sel';tb();hint();drawOv();return;}
+ if((e.key==='Delete'||e.key==='Backspace')&&(sel||selP)){e.preventDefault();del();return;}
+ if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undo();return;}
+ const st=e.shiftKey?100:10,fl=(cur==='C'&&S.flip)?-1:1;
+ if(e.key.startsWith('Arrow')){
+  const dx=e.key==='ArrowLeft'?-st:e.key==='ArrowRight'?st:0,dy=e.key==='ArrowUp'?st:e.key==='ArrowDown'?-st:0;
+  if(selP){const p=findP(selP);if(p){e.preventDefault();push2();VIEWS[cur].mv(p,dx*fl,dy);inval();drawAll();updPieceFields();autosave();}return;}
+  const a=sel&&find(sel);
+  if(a&&a.t!=='d'){e.preventDefault();a.u+=dx*fl;a.v+=dy;syncLabel(a);push2();drawAnn();updPos();autosave();}}});
+function syncLabel(a){if(a.t==='s'&&a.auto)a.label='h '+Math.round(a.v);}
+let lastNudge=0;function push2(){const n=Date.now();if(n-lastNudge>800)push();lastNudge=n;}
+function del(){push();if(selP){const id=selP;S.pieces=S.pieces.filter(p=>p.id!==id);selP=null;inval();}else{const id=sel;ann[cur]=ann[cur].filter(a=>a.id!==id);sel=null;}drawAll();props();autosave();}
+const POS=()=>{const V=VIEWS[cur],f=V.fr,el=V.lab==='h',R=S.ref;
+ const fx0=Math.min(U(cur,f[0]),U(cur,f[2])),fx1=Math.max(U(cur,f[0]),U(cur,f[2])),fl=cur==='C'&&S.flip;
+ return {
+  h:a=>{const du=U(cur,a.u);return Math.round(R.h==='L'?du-fx0:fx1-du);},
+  sh:(a,x)=>{const du=R.h==='L'?fx0+x:fx1-x;a.u=fl?-du:du;},
+  v:a=>Math.round(el?(R.v==='p'?a.v-f[1]:f[3]-a.v):(R.v==='p'?f[3]-a.v:a.v-f[1])),
+  sv:(a,x)=>{a.v=el?(R.v==='p'?x+f[1]:f[3]-x):(R.v==='p'?f[3]-x:x+f[1]);},
+  vopt:el?['Pavimento','Soffitto']:['Muro di fondo','Lato opposto']};};
+function updPos(){const a=sel&&find(sel);if(!a||a.t==='d')return;const p=POS(),h=$('ph'),v=$('pvv');if(h&&document.activeElement!==h)h.value=p.h(a);if(v&&document.activeElement!==v)v.value=p.v(a);const l=$('pv');if(l&&a.t==='s'&&document.activeElement!==l)l.value=a.label||'';}
+const symName=r=>{const s=ann[cur].find(a=>a.id===r.id);return s?(SYM[s.k][0]+(s.code?' «'+s.code+'»':'')):'?';};
+function applyDim(d,val){resolve(cur,d);let fixed;if(d.r1&&d.r2)fixed=d.fix||'a';else if(d.r1)fixed='b';else if(d.r2)fixed='a';else return;
+ const mv=fixed==='a'?'b':'a',r=mv==='a'?d.r1:d.r2,s=r&&ann[cur].find(x=>x.id===r.id&&x.t==='s');if(!s)return;
+ const pf=d[fixed],pm=d[mv],sg=Math.sign(pm-pf)||1,np=pf+sg*val,delta=np-pm;
+ if(d.ax==='h')s.u+=delta;else s.v+=delta;syncLabel(s);}
+/* campi del mobile (misure nella pianta e da terra) */
+const PF=()=>{const R=S.room;return {
+ w:[p=>p.x1-p.x0,(p,v)=>{p.x1=p.x0+v;}],d:[p=>p.y1-p.y0,(p,v)=>{p.y0=p.y1-v;}],h:[p=>p.z1-p.z0,(p,v)=>{p.z1=p.z0+v;}],z:[p=>p.z0,(p,v)=>{const h=p.z1-p.z0;p.z0=v;p.z1=v+h;}],
+ l:[p=>p.x0-R.x0,(p,v)=>{const w=p.x1-p.x0;p.x0=R.x0+v;p.x1=p.x0+w;}],t:[p=>R.y1-p.y1,(p,v)=>{const d=p.y1-p.y0;p.y1=R.y1-v;p.y0=p.y1-d;}]};};
+function updPieceFields(){const p=selP&&findP(selP);if(!p)return;const F=PF();for(const k in F){const i=$('pf_'+k);if(i&&document.activeElement!==i)i.value=Math.round(F[k][0](p));}}
+function props(){const el=$('props'),p=selP&&findP(selP),a=!p&&sel&&find(sel);
+ if(p){const F=PF(),f=(k,t)=>`<div><small>${t}</small><input type="number" id="pf_${k}" step="10" value="${Math.round(F[k][0](p))}"></div>`;
+  el.innerHTML=`<b>Mobile</b> <small>${p.t==='S'?'solido importato da Metron':p.t==='P'?'forma importata da Metron':'disegnato qui'}</small><br><small>Nome</small><input type="text" id="pnm" value="${esc(p.nm||'')}">
+  <div class="row">${f('w','Larghezza (mm)')}${f('d','Profondità (mm)')}</div><div class="row">${f('h','Altezza (mm)')}${f('z','Da terra (mm)')}</div>
+  <div class="row">${f('l','Da sinistra (pianta)')}${f('t','Dall\'alto (pianta)')}</div>
+  <small>Le misure «da sinistra» e «dall'alto» sono quelle della pianta vista dall'alto. Puoi anche trascinare il mobile o usare le frecce.</small><br>
+  <div class="row"><button id="pdup">Duplica</button><button id="pd" class="danger">Elimina</button></div>`;
+  $('pnm').onfocus=push;$('pnm').oninput=ev=>{p.nm=ev.target.value;autosave();};
+  for(const k in F){const i=$('pf_'+k);i.onfocus=push;i.oninput=ev=>{if(ev.target.value==='')return;let v=+ev.target.value;if(!isFinite(v))return;if(k==='w'||k==='d'||k==='h')v=Math.max(10,v);F[k][1](p,v);inval();drawAll();autosave();};}
+  $('pdup').onclick=()=>{push();const c=JSON.parse(JSON.stringify(p));c.id=S.pid++;c.t='M';c.x0+=200;c.x1+=200;S.pieces.push(c);selP=c.id;inval();drawAll();props();autosave();};
+  $('pd').onclick=del;return;}
+ if(!a){el.innerHTML=`<b>Come si usa</b><small><br>1. <b>Stanza…</b> per le misure della stanza e le pareti da mostrare. <b>Importa DXF</b> per leggere un progetto Metron.<br>
+ 2. <b>Mobili</b> (a sinistra): clicca il tipo, poi clicca nel disegno. Con «Modifica mobili» li trascini e cambi le misure.<br>
+ 3. <b>Simboli</b>: clicca un simbolo e poi il disegno (o trascinalo). Cliccalo dopo per cambiarne forma, misure e colore.<br>
+ 4. <b>Quota</b>: clicca due punti e poi la posizione della linea. Clicca sul centro di un simbolo per collegarlo: poi, cliccando la quota, scrivi il valore e il simbolo si sposta.<br>
+ 5. Rotellina = zoom, trascina lo sfondo = sposta la vista. Canc = elimina, Ctrl+Z = annulla.<br>
+ 6. <b>Salva</b> e <b>Apri</b> per riprendere il lavoro, <b>Stampa / PDF</b> a fine lavoro.</small>`;return;}
+ const del_='<div class="row"><button id="pd" class="danger">Elimina</button></div>';
+ if(a.t==='s'||a.t==='x'){const pp=POS();
+  const isS=a.t==='s';
+  let h=`<b>${isS?SYM[a.k][0]:'Testo'}</b><br>`;
+  if(isS){h+=`<small>Sigla scritta nel simbolo</small><input type="text" id="pc" maxlength="6" value="${esc(a.code||'')}"><small>Forma</small><select id="psh">${Object.entries(SHAPES).map(([k,n])=>`<option value="${k}"${a.shape===k?' selected':''}>${n}</option>`).join('')}</select>`;
+   h+=a.shape==='c'?`<small>Diametro (mm)</small><input type="number" id="pw" min="20" step="10" value="${Math.round(a.w)}">`:`<div class="row"><div><small>Larghezza (mm)</small><input type="number" id="pw" min="20" step="10" value="${Math.round(a.w)}"></div><div><small>Altezza (mm)</small><input type="number" id="ph2" min="20" step="10" value="${Math.round(a.h)}"></div></div>`;
+   h+=`<small>Colore</small><input type="color" id="pcol" value="${a.color||SYM[a.k][2]}" style="width:60px;height:30px;padding:0;margin:3px 0 8px"><small>Testo sotto il simbolo</small><input type="text" id="pv" value="${esc(a.label||'')}">`;}
+  else h+=`<textarea id="pv" rows="3">${esc(a.txt)}</textarea>`;
+  h+=`<hr style="border:0;border-top:1px solid #e5e7eb"><small>Posizione misurata dal centro, partendo da…</small><div class="row"><select id="rh"><option value="L"${S.ref.h==='L'?' selected':''}>Sinistra</option><option value="R"${S.ref.h==='R'?' selected':''}>Destra</option></select><select id="rv"><option value="p"${S.ref.v==='p'?' selected':''}>${pp.vopt[0]}</option><option value="q"${S.ref.v==='q'?' selected':''}>${pp.vopt[1]}</option></select></div>`+
+  `<small>Orizzontale (mm)</small><input type="number" id="ph" step="10" value="${pp.h(a)}"><small>Verticale (mm)</small><input type="number" id="pvv" step="10" value="${pp.v(a)}"><div class="row"><button id="pdup">Duplica</button></div>${del_}`;
+  el.innerHTML=h;
+  $('pv').onfocus=push;$('pv').oninput=ev=>{if(isS){a.label=ev.target.value;a.auto=false;}else a.txt=ev.target.value;drawAnn();autosave();};
+  if(isS){
+   $('pc').onfocus=push;$('pc').oninput=ev=>{a.code=ev.target.value;drawAnn();autosave();};
+   $('psh').onchange=ev=>{push();a.shape=ev.target.value;if(a.shape==='c')a.h=a.w;drawAnn();props();autosave();};
+   $('pw').onfocus=push;$('pw').oninput=ev=>{const x=Math.max(20,+ev.target.value||20);a.w=x;if(a.shape==='c')a.h=x;drawAnn();autosave();};
+   if($('ph2')){$('ph2').onfocus=push;$('ph2').oninput=ev=>{a.h=Math.max(20,+ev.target.value||20);drawAnn();autosave();};}
+   $('pcol').onfocus=push;$('pcol').oninput=ev=>{a.color=ev.target.value;drawAnn();autosave();};}
+  $('rh').onchange=ev=>{S.ref.h=ev.target.value;props();autosave();};$('rv').onchange=ev=>{S.ref.v=ev.target.value;props();autosave();};
+  $('ph').onfocus=$('pvv').onfocus=push;
+  $('ph').onchange=$('pvv').onchange=()=>{autosave();};
+  $('ph').oninput=$('pvv').oninput=ev=>{if(ev.target.value==='')return;(ev.target.id==='ph'?pp.sh:pp.sv)(a,+ev.target.value);syncLabel(a);drawAnn();const l=$('pv');if(l&&isS)l.value=a.label||'';};
+  $('pdup').onclick=()=>{push();const c=JSON.parse(JSON.stringify(a));c.id=S.nid++;c.u+=150;syncLabel(c);ann[cur].push(c);sel=c.id;drawAnn();props();autosave();};}
+ else{resolve(cur,a);const len=Math.round(Math.abs(a.b-a.a)),both=a.r1&&a.r2,lk=a.r1||a.r2,fx=a.fix||'a';
+  const opts=a.ax==='h'?[['c','Centro'],['l','Lato sinistro'],['r','Lato destro']]:[['c','Centro'],['t','Lato superiore'],['b','Lato inferiore']];
+  const sel_=(id,r)=>`<small>Quota misurata da (${esc(symName(r))})</small><select id="${id}">${opts.map(o=>`<option value="${o[0]}"${r.k===o[0]?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+  let h=`<b>Quota</b><br>`;
+  if(lk)h+=`<small>Valore (mm): scrivilo e l'elemento quotato si sposta</small><input type="number" id="dv" step="10" value="${len}">`;
+  else h+=`<small>Valore: ${len} mm. Nessun simbolo collegato: per poter cambiare il valore rifai la quota cliccando sul centro di un simbolo.</small><br>`;
+  if(both)h+=`<small>Cosa resta fermo (riferimento)</small><label class="ck"><input type="radio" name="fx" value="a"${fx==='a'?' checked':''}> ${esc(symName(a.r1))}</label><label class="ck"><input type="radio" name="fx" value="b"${fx==='b'?' checked':''}> ${esc(symName(a.r2))}</label><br>`;
+  else if(lk)h+=`<small>Resta fermo l'altro punto (bordo o punto fisso). Si muove: ${esc(symName(a.r1||a.r2))}.</small><br>`;
+  if(a.r1)h+=sel_('ek1',a.r1);if(a.r2)h+=sel_('ek2',a.r2);
+  h+=`<small>Testo diverso dal valore (vuoto = valore reale)</small><input type="text" id="pv" value="${esc(a.txt||'')}"><small>Trascina la linea per spostarla.</small><br>${del_}`;
+  el.innerHTML=h;
+  $('pv').onfocus=push;$('pv').oninput=ev=>{a.txt=ev.target.value;drawAnn();autosave();};
+  if($('dv')){$('dv').onfocus=push;$('dv').oninput=ev=>{if(ev.target.value==='')return;a.txt='';applyDim(a,Math.abs(+ev.target.value));drawAnn();autosave();};}
+  el.querySelectorAll('input[name=fx]').forEach(r=>r.onchange=()=>{push();a.fix=r.value;autosave();});
+  if($('ek1'))$('ek1').onchange=ev=>{push();a.r1.k=ev.target.value;drawAnn();props();autosave();};
+  if($('ek2'))$('ek2').onchange=ev=>{push();a.r2.k=ev.target.value;drawAnn();props();autosave();};}
+ $('pd').onclick=del;}
+function tb(){document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.t===tool&&(tool==='sel'||tool==='mob'||tool==='dim'||tool==='txt'||(tool==='sym'&&b.dataset.k===sym)||(tool==='pc'&&b.dataset.k===pre))));}
+function buildTools(){let h='<h3>Strumenti</h3><button data-t="sel">☝ Simboli: seleziona / sposta</button><button data-t="mob">▭ Modifica mobili</button><button data-t="dim">↔ Quota</button><button data-t="txt">T Testo</button><h3>Mobili (clic o trascina)</h3>';
+ for(const k in PRE)h+=`<button data-t="pc" data-k="${k}" draggable="true" title="${PRE[k].w}×${PRE[k].d}×${PRE[k].h}"><span class="bx"></span>${PRE[k].n}</button>`;
+ h+='<h3>Simboli (clic o trascina)</h3>';
+ for(const k in SYM){const d=SYM[k];h+=`<button data-t="sym" data-k="${k}" draggable="true"><span class="dot" style="border-color:${d[2]};color:${d[2]}">${d[1]||'+'}</span>${d[0]}</button>`;}
+ h+='<label class="ck"><input type="checkbox" id="snap" checked> Aggancia ai bordi</label>';
+ $('tools').innerHTML=h;
+ $('tools').onclick=e=>{const b=e.target.closest('button');if(!b)return;tool=b.dataset.t;if(tool==='sym')sym=b.dataset.k;if(tool==='pc')pre=b.dataset.k;dim=null;if(tool!=='mob')selP=null;if(tool==='mob')sel=null;tb();hint();drawAll();props();};
+ $('tools').ondragstart=e=>{const b=e.target.closest('button[data-k]');if(b)e.dataTransfer.setData('text/plain',b.dataset.t==='pc'?'pc:'+b.dataset.k:b.dataset.k);};
+ $('snap').onchange=e=>{snapOn=e.target.checked;};tb();}
+function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}">${VIEWS[k].n}</button>`).join('');
+ $('flipbox').style.display=cur==='C'?'flex':'none';}
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
+function go(v){cur=v;sel=null;selP=null;dim=null;tool=(tool==='sym'||tool==='pc')?'sel':tool;if(!vb[v])vb[v]=fitVB(v);buildTabs();tb();hint();setVB();drawAll();props();}
+function rebuild(){VIEWS=buildViews();inval();vb={};if(!VIEWS[cur])cur='D';go(cur);}
+$('flip').onchange=e=>{S.flip=e.target.checked;vb.C=fitVB('C');drawAll();setVB();autosave();};
+$('op').oninput=e=>{OP=e.target.value/100;drawAll();};
+$('undo').onclick=undo;$('fit').onclick=()=>{vb[cur]=fitVB(cur);setVB();};
+$('clr').onclick=()=>{if(!ann[cur].length||!confirm('Cancellare tutti i simboli e le quote di questa vista?'))return;push();ann[cur]=[];sel=null;drawAnn();props();autosave();};
+$('pn').oninput=e=>{S.nome=e.target.value;autosave();};
+function fullSVG(v,w){const b=fitVB(v);return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.join(' ')}"${w?` width="${w}"`:''}>${STYLE}<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" fill="#fff"/>${piecesSVG(v,false)}${annSVG(v,false)}</svg>`;}
+$('svgb').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([fullSVG(cur)],{type:'image/svg+xml'}));a.download=S.nome+' - '+VIEWS[cur].n+'.svg';a.click();};
+$('prt').onclick=()=>{let h='';for(const v in VIEWS){h+=`<div class="page"><h2>${esc(S.nome)} — ${VIEWS[v].n} (${VIEWS[v].s})</h2>${fullSVG(v)}</div>`;}$('print').innerHTML=h;setTimeout(()=>print(),50);};
+$('save').onclick=async()=>{const txt=stateText(),name=S.nome+' - impianti.json';
+ try{if(window.showSaveFilePicker){const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Lavoro impianti',accept:{'application/json':['.json']}}]});const w=await h.createWritable();await w.write(txt);await w.close();return;}}catch(e){if(e&&e.name==='AbortError')return;}
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;a.click();};
+$('open').onclick=async()=>{try{if(window.showOpenFilePicker){const [h]=await showOpenFilePicker({types:[{description:'Lavoro impianti',accept:{'application/json':['.json']}}]});const f=await h.getFile();openText(await f.text());return;}}catch(e){if(e&&e.name==='AbortError')return;}$('file').click();};
+function openText(t){push();try{loadState(JSON.parse(t));}catch(x){hist.pop();alert('Questo file non è un lavoro salvato da questa applicazione.');return;}rebuild();autosave();}
+$('file').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(openText);e.target.value='';};
+
+/* ====================== finestre ====================== */
+function modal(html){$('box').innerHTML=html;$('ovl').style.display='flex';}
+function closeModal(){$('ovl').style.display='none';$('box').innerHTML='';}
+$('bnew').onclick=()=>{
+ if((S.pieces.length||Object.values(ann).some(a=>a.length))&&!confirm('Iniziare un nuovo progetto con stanza vuota? Quello attuale si può recuperare con Annulla (Ctrl+Z) finché non chiudi la pagina; se non l\'hai salvato, salvalo prima.'))return;
+ push();const n=newState();n.nid=S.nid;n.pid=S.pid;S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;rebuild();autosave();roomDlg();};
+function roomDlg(){const R=S.room;
+ modal(`<h2>Stanza</h2><div class="f"><div><small>Larghezza (mm, parete in alto)</small><input type="number" id="rw" step="10" value="${R.x1-R.x0}"></div><div><small>Profondità (mm)</small><input type="number" id="rd" step="10" value="${R.y1-R.y0}"></div><div><small>Altezza (mm)</small><input type="number" id="rhh" step="10" value="${R.h}"></div></div>
+ <p><small>Pareti da mostrare</small>${WALLS.map(k=>`<label class="ck"><input type="checkbox" data-w="${k}"${S.show[k]?' checked':''}> ${NM[k]}</label>`).join('')}</p>
+ <p><small>Il soffitto (visto dal basso) e il pavimento (visto dall'alto) ci sono sempre. «Parete in alto» è quella in alto nella pianta vista dall'alto.</small></p>
+ <div class="acts"><button id="rc">Annulla</button><button id="rok" class="pri">Applica</button></div>`);
+ $('rc').onclick=closeModal;
+ $('rok').onclick=()=>{const w=Math.max(500,+$('rw').value||0),d=Math.max(500,+$('rd').value||0),h=Math.max(1000,+$('rhh').value||0);
+  push();const ch=(w!==R.x1-R.x0)||(d!==R.y1-R.y0);
+  S.room={x0:R.x0,y0:R.y0,x1:R.x0+w,y1:R.y0+d,h};if(ch)S.wr={};
+  document.querySelectorAll('[data-w]').forEach(c=>{S.show[c.dataset.w]=c.checked;});
+  closeModal();rebuild();autosave();};}
+$('broom').onclick=roomDlg;
+
+/* ====================== importazione DXF ====================== */
+let worker=null;
+$('bdxf').onclick=()=>$('fdxf').click();
+$('fdxf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)importDxf(f);};
+function importDxf(f){
+ if(!/\.dxf$/i.test(f.name)){alert(/\.dwg$/i.test(f.name)?'Questo è un DWG. In Metron salva o esporta lo stesso progetto in formato DXF e scegli quello.':'Il file non è un DXF.');return;}
+ const mb=Math.round(f.size/1048576);
+ modal(`<h2>Lettura del DXF</h2><p>${esc(f.name)} (${mb} MB). Con i file grandi può servire un minuto: la pagina resta utilizzabile.</p><div class="bar"><i id="bi"></i></div><p id="bt">Avvio…</p><div class="acts"><button id="bx">Annulla</button></div>`);
+ try{const url=URL.createObjectURL(new Blob(['('+workerMain.toString()+')()'],{type:'text/javascript'}));worker=new Worker(url);}catch(x){closeModal();alert('Il browser non permette la lettura del DXF in questa modalità. Prova con Chrome o Edge.');return;}
+ const w=worker;$('bx').onclick=()=>{w.terminate();worker=null;closeModal();};
+ w.onmessage=ev=>{const m=ev.data;
+  if(m.type==='p'){const b=$('bi'),t=$('bt');if(b){b.style.width=Math.round(m.pct*100)+'%';t.textContent=Math.round(m.pct*100)+'% — '+m.n+' elementi trovati';}}
+  else if(m.type==='err'){w.terminate();worker=null;closeModal();alert('Errore nella lettura del DXF: '+m.msg);}
+  else if(m.type==='done'){w.terminate();worker=null;importDone(f,m);}};
+ w.onerror=ev=>{w.terminate();worker=null;closeModal();alert('Errore nella lettura del DXF.');};
+ w.postMessage(f);}
+function fascia(pcs,lato,ext){let sel,uv;
+ if(lato==='ymax'){sel=pcs.filter(p=>p[4]>ext.ymax-BAND);uv=p=>[p[0],p[3]];}
+ else if(lato==='ymin'){sel=pcs.filter(p=>p[1]<ext.ymin+BAND);uv=p=>[-p[3],-p[0]];}
+ else if(lato==='xmax'){sel=pcs.filter(p=>p[3]>ext.xmax-BAND);uv=p=>[-p[4],-p[1]];}
+ else{sel=pcs.filter(p=>p[0]<ext.xmin+BAND);uv=p=>[p[1],p[4]];}
+ const iv=sel.map(uv).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);let cop=0,fine=null,umin=null,umax=null;
+ for(const [a,b] of iv){umin=umin===null?a:Math.min(umin,a);umax=umax===null?b:Math.max(umax,b);
+  if(fine===null||a>fine){cop+=b-a;fine=b;}else if(b>fine){cop+=b-fine;fine=b;}}
+ return {cop,umin,umax};}
+function importDone(f,m){
+ const pcs=m.pieces;
+ if(!pcs.length){modal(`<h2>Nessun elemento trovato</h2><p>Nel DXF non ci sono solidi o mesh leggibili. Controlla che sia l'esportazione 3D del progetto Metron.</p><div class="acts"><button id="ok" class="pri">Chiudi</button></div>`);$('ok').onclick=closeModal;return;}
+ const ext={xmin:Math.min(...pcs.map(p=>p[0])),xmax:Math.max(...pcs.map(p=>p[3])),ymin:Math.min(...pcs.map(p=>p[1])),ymax:Math.max(...pcs.map(p=>p[4]))};
+ const zmax=pcs.reduce((a,p)=>Math.max(a,p[5]),0),H=Math.max(2700,Math.ceil(zmax/100)*100);
+ const cand=WALLS.map(k=>({k,...fascia(pcs,k,ext)})).filter(c=>c.cop>0).sort((a,b)=>b.cop-a.cop);
+ let prop=cand.filter(c=>c.cop>=MIN_PARETE);if(!prop.length)prop=cand.slice(0,1);
+ const have=Object.values(ann).some(a=>a.length)||S.pieces.length;
+ const sk=Object.entries(m.skipped).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>k+' ('+v+')').join(', ');
+ modal(`<h2>DXF letto</h2><p><b>${pcs.length}</b> elementi (${m.cnt.S} solidi, ${m.cnt.P} mesh). Ingombro <b>${ext.xmax-ext.xmin} × ${ext.ymax-ext.ymin} mm</b>, altezza massima ${Math.round(zmax)} mm.${sk?`<br><small>Tipi ignorati: ${esc(sk)}</small>`:''}</p>
+ <p><small>Pareti con mobili (proposte già spuntate)</small>${cand.map(c=>`<label class="ck"><input type="checkbox" data-w="${c.k}"${prop.includes(c)?' checked':''}> ${NM[c.k]} — mobili per ${Math.round(c.cop)} mm</label>`).join('')}</p>
+ ${have?`<label class="ck"><input type="checkbox" id="keep"> Tieni i simboli e le quote già disegnati</label><p><small>Sostituisco stanza e mobili con quelli del DXF. Se non spunti, anche simboli e quote ripartono da zero. Con Annulla torni al progetto di prima.</small></p>`:''}
+ <div class="acts"><button id="ic">Annulla</button><button id="iok" class="pri">Importa</button></div>`);
+ $('ic').onclick=closeModal;
+ $('iok').onclick=()=>{const chosen=[...document.querySelectorAll('[data-w]')].filter(c=>c.checked).map(c=>c.dataset.w),keep=$('keep')&&$('keep').checked;
+  push();const old=S.ann,n=newState();
+  n.nome=f.name.replace(/\.dxf$/i,'');n.room={x0:ext.xmin,y0:ext.ymin,x1:ext.xmax,y1:ext.ymax,h:H};
+  n.show={ymax:false,xmax:false,ymin:false,xmin:false};for(const k of chosen)n.show[k]=true;
+  for(const c of cand)if(n.show[c.k])n.wr[c.k]=[Math.floor(c.umin),Math.ceil(c.umax)];
+  n.pid=1;n.pieces=pcs.map(p=>({id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]}));
+  n.nid=S.nid;if(keep){for(const k in old)n.ann[k]=old[k];}
+  S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';closeModal();cur='D';rebuild();autosave();};}
+addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))$('dz').style.display='flex';});
+addEventListener('dragleave',e=>{if(!e.relatedTarget)$('dz').style.display='none';});
+addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault();});
+addEventListener('drop',e=>{$('dz').style.display='none';const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;e.preventDefault();
+ if(/\.dxf$/i.test(f.name)||/\.dwg$/i.test(f.name))importDxf(f);else if(/\.json$/i.test(f.name))f.text().then(openText);});
+
+/* ====================== avvio ====================== */
+{try{const s=localStorage.getItem(KEY);if(s)loadState(JSON.parse(s));}catch(e){S=newState();ann=S.ann;}
+ $('pn').value=S.nome;$('flip').checked=S.flip;}
+buildTools();VIEWS=buildViews();cur=VIEWS.D?'D':Object.keys(VIEWS)[0];cur=VIEWS.ymax?'ymax':cur;go(cur);
+window.__t={get S(){return S;},get cur(){return cur;},get ann(){return ann;},importDxf,workerMain};
+</script></body></html>
