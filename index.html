@@ -48,6 +48,10 @@ g[data-id],g[data-pid]{cursor:pointer}
 #ovl p{margin:6px 0;line-height:1.45}
 .bar{height:14px;background:#e5e7eb;border-radius:7px;overflow:hidden;margin:12px 0}
 .bar i{display:block;height:100%;width:0;background:#1f6feb;transition:width .15s}
+#pick{position:fixed;inset:0;background:#fff;z-index:60;display:none;flex-direction:column}
+#pick .ph{display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid #d5d9e0;flex-wrap:wrap}
+#pick .ph span.t{color:#4b5563;font-size:13px;flex:1;min-width:260px}
+#psvg{flex:1;width:100%;min-height:0;touch-action:none;user-select:none;background:#fafafa}
 #dz{position:fixed;inset:0;border:4px dashed #1f6feb;background:rgba(31,111,235,.08);display:none;align-items:center;justify-content:center;font-size:22px;color:#1f6feb;z-index:40;pointer-events:none}
 #print{display:none}
 @media print{
@@ -84,6 +88,7 @@ g[data-id],g[data-pid]{cursor:pointer}
  <aside id="props"></aside>
 </main>
 <div id="ovl"><div class="box" id="box"></div></div>
+<div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Clicca le pareti che ti servono: diventano verdi. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato. Rotellina = zoom, trascina = sposta.</span><label class="ck"><input type="checkbox" id="pall"> Mostra altre possibili pareti</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
 <div id="dz">Rilascia qui un file DXF o un lavoro salvato (.json)</div>
 <div id="print"></div>
 <script>
@@ -225,7 +230,7 @@ const STYLE='<style>.ps{fill:rgba(60,95,160,.06);stroke:rgba(40,70,130,.35);stro
 
 /* ====================== viste ====================== */
 /* geometria di una parete: quali mobili vede (f), come si disegnano (r), come si spostano (mv), come se ne crea uno nuovo (mk) */
-function sideDef(w){const F=wallFrame(w),o=w.auto,T=o?1e9:TOLW,e=F.e,d=F.d,t0=F.t0,obl=!o&&!sideOfDir(e),ph=Math.atan2(e[1],e[0]);
+function sideDef(w){const F=wallFrame(w),o=w.auto,T=o?1e9:(w.rev?BAND:TOLW),e=F.e,d=F.d,t0=F.t0,obl=!o&&!sideOfDir(e),ph=Math.atan2(e[1],e[0]);
  const allin=p=>{const c=cornersP(p),th=Math.atan2(c[1][1]-c[0][1],c[1][0]-c[0][0]);let df=((th-ph)*180/Math.PI)%90;if(df>45)df-=90;if(df<=-45)df+=90;return Math.abs(df)<=15;};
  const ur=p=>{let a=1e300,b=-1e300;for(const c of cornersP(p)){const u=c[0]*e[0]+c[1]*e[1];if(u<a)a=u;if(u>b)b=u;}return [a,b];};
  const dist=p=>{let m=1e300;for(const c of cornersP(p)){const s=t0-(c[0]*d[0]+c[1]*d[1]);if(s<m)m=s;}return m;};
@@ -527,7 +532,7 @@ function roomDlg(P){const R=S.room;
  P=P||{w:R.x1-R.x0,d:R.y1-R.y0,h:R.h,walls:JSON.parse(JSON.stringify(S.walls)),ns:'ymax'};
  const num=(i,f,t,v)=>`<div><small>${t}</small><input type="number" data-g="${i}" data-f="${f}" step="10" value="${Math.round(v)}"></div>`;
  const rows=P.walls.map((w,i)=>{const g=wallGeom(w);
-  return `<div class="f" style="align-items:center;margin:4px 0"><label class="ck" style="margin:0;flex:none"><input type="checkbox" data-w="${i}"${w.show?' checked':''}></label><input type="text" data-n="${i}" value="${esc(w.n)}" style="flex:1"><small style="margin:0;flex:none;width:130px">${esc(wallDesc(w))}</small>${w.auto?'':`<button data-x="${i}" class="danger" title="Elimina la parete">✕</button>`}</div>`+
+  return `<div class="f" style="align-items:center;margin:4px 0"><label class="ck" style="margin:0;flex:none"><input type="checkbox" data-w="${i}"${w.show?' checked':''}></label><input type="text" data-n="${i}" value="${esc(w.n)}" style="flex:1"><small style="margin:0;flex:none;width:130px">${esc(wallDesc(w))}</small>${w.auto?'':`<button data-r="${i}" title="Inverti il lato da cui guardi la parete">⇄</button><button data-x="${i}" class="danger" title="Elimina la parete">✕</button>`}</div>`+
   (w.auto?'':`<div class="f" style="margin:0 0 8px 26px">${num(i,'x1','Punto 1 · x',g.p1[0])}${num(i,'y1','y',g.p1[1])}${num(i,'x2','Punto 2 · x',g.p2[0])}${num(i,'y2','y',g.p2[1])}</div>`);}).join('');
  modal(`<h2>Stanza</h2><div class="f"><div><small>Larghezza (mm)</small><input type="number" id="rw" step="10" value="${P.w}"></div><div><small>Profondità (mm)</small><input type="number" id="rd" step="10" value="${P.d}"></div><div><small>Altezza (mm)</small><input type="number" id="rhh" step="10" value="${P.h}"></div></div>
  <p><small>Pareti: spunta quelle da mostrare e scrivi il nome (compare anche nella stampa). Non c'è un limite di numero e possono avere qualsiasi angolo.</small>${rows}</p>
@@ -545,6 +550,7 @@ function roomDlg(P){const R=S.room;
   let g;if(side==='obl')g={p1:[Rr.x1-800,Rr.y1],p2:[Rr.x1,Rr.y1-800]};else g=wallGeom({auto:true,side},Rr);
   P.walls.push({k:freeKey(side==='obl'?null:side,P.walls,S.ann),n:freeName(P.walls),auto:false,show:true,p1:g.p1.slice(),p2:g.p2.slice()});roomDlg(P);};
  document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{grab();P.walls.splice(+b.dataset.x,1);roomDlg(P);});
+ document.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{grab();const w=P.walls[+b.dataset.r],t=w.p1;w.p1=w.p2;w.p2=t;w.rev=!w.rev;roomDlg(P);});
  $('rok').onclick=()=>{grab();const w=Math.max(500,P.w),d=Math.max(500,P.d),h=Math.max(1000,P.h);
   const corte=P.walls.find(x=>!x.auto&&Math.hypot(x.p2[0]-x.p1[0],x.p2[1]-x.p1[1])<50);
   if(corte){alert('La parete «'+corte.n+'» è lunga meno di 5 cm: controlla i due punti.');return;}
@@ -606,34 +612,60 @@ function candidati(pcs){
  list=list.sort((a,b)=>b.cop-a.cop).slice(0,MAXCAND);
  for(const c of list){let m=-1e300;for(const p of pcs)for(const q of cornersA(p)){const v=q[0]*c.d[0]+q[1]*c.d[1];if(v>m)m=v;}c.off=Math.max(0,m-c.t);}
  return list;}
+const chiave=c=>{const a=Math.atan2(c.d[1],c.d[0])*180/Math.PI,k=Math.round((((90-a)%360)+360)%360*10)/10;return k>=359.95?0:k;};
+const ecand=(c,rev)=>rev?Object.assign({},c,{d:[-c.d[0]+0,-c.d[1]+0],e:[-c.e[0]+0,-c.e[1]+0]}):c;
+const cpt=(c,u)=>[Math.round((u*c.e[0]+c.t*c.d[0])*10)/10+0,Math.round((u*c.e[1]+c.t*c.d[1])*10)/10+0];
+const cEnds=(c,rev)=>{const A=cpt(c,Math.floor(c.umin)),B=cpt(c,Math.ceil(c.umax));return rev?[B,A]:[A,B];};
+let pk=null;
 function importDone(f,m){
  const pcs=m.pieces;
  if(!pcs.length){modal(`<h2>Nessun elemento trovato</h2><p>Nel DXF non ci sono solidi o mesh leggibili. Controlla che sia l'esportazione 3D del progetto Metron.</p><div class="acts"><button id="ok" class="pri">Chiudi</button></div>`);$('ok').onclick=closeModal;return;}
+ closeModal();
  const ext={xmin:Math.min(...pcs.map(p=>p[0])),xmax:Math.max(...pcs.map(p=>p[3])),ymin:Math.min(...pcs.map(p=>p[1])),ymax:Math.max(...pcs.map(p=>p[4]))};
  const zmax=pcs.reduce((a,p)=>Math.max(a,p[5]),0),H=Math.max(2700,Math.ceil(zmax/100)*100);
- const cand=candidati(pcs),nrot=pcs.filter(p=>p[7]).length;
- let prop=cand.filter(c=>c.off<=CLUS||c.multi);if(!prop.length)prop=cand.slice(0,1);
- const have=Object.values(ann).some(a=>a.length)||S.pieces.length;
- const sk=Object.entries(m.skipped).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>k+' ('+v+')').join(', ');
- modal(`<h2>DXF letto</h2><p><b>${pcs.length}</b> elementi (${m.cnt.S} solidi, ${m.cnt.P} mesh${nrot?`, ${nrot} ruotati in pianta`:''}). Ingombro <b>${ext.xmax-ext.xmin} × ${ext.ymax-ext.ymin} mm</b>, altezza massima ${Math.round(zmax)} mm.${sk?`<br><small>Tipi ignorati: ${esc(sk)}</small>`:''}</p>
- <p><small>Pareti trovate (anche oblique): spunta quelle che servono (le proposte sono già spuntate). Le altre restano nascoste e le riattivi da «Stanza…».</small>${cand.map((c,i)=>`<label class="ck"><input type="checkbox" data-w="${i}"${prop.includes(c)?' checked':''}> ${esc(dirDesc(c.e))}, mobili per ${Math.round(c.cop)} mm${c.off>1?` (rientrata di ${Math.round(c.off)} mm)`:''}</label>`).join('')}</p>
- ${have?`<label class="ck"><input type="checkbox" id="keep"> Tieni i simboli e le quote già disegnati</label><p><small>Sostituisco stanza e mobili con quelli del DXF. Se non spunti, anche simboli e quote ripartono da zero. Con Annulla torni al progetto di prima.</small></p>`:''}
- <div class="acts"><button id="ic">Annulla</button><button id="iok" class="pri">Importa</button></div>`);
- $('ic').onclick=closeModal;
- $('iok').onclick=()=>{const on=new Set([...document.querySelectorAll('[data-w]')].filter(c=>c.checked).map(c=>+c.dataset.w)),keep=$('keep')&&$('keep').checked;
+ const cand=candidati(pcs);
+ let prop=cand.map((c,i)=>i).filter(i=>cand[i].off<=CLUS||cand[i].multi);if(!prop.length&&cand.length)prop=[0];
+ const w=ext.xmax-ext.xmin,h=ext.ymax-ext.ymin,mg=Math.max(w,h)*0.12+300;
+ pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false};
+ $('pall').checked=false;$('pkw').style.display=(Object.values(ann).some(a=>a.length)||S.pieces.length)?'flex':'none';$('pkeep').checked=false;
+ $('pick').style.display='flex';pkDraw();}
+function pkOrder(){return [...pk.on].map(i=>({i,c:ecand(pk.cand[i],pk.rev.has(i))})).sort((a,b)=>chiave(a.c)-chiave(b.c)||pk.cand[a.i].umin-pk.cand[b.i].umin);}
+function pkDraw(){
+ const sv=$('psvg'),u=pk.u,X=x=>x.toFixed(0),Y=y=>(-y).toFixed(0);let s='';
+ for(const p of pk.pcs){const c=cornersA(p);s+=`<polygon points="${c.map(q=>X(q[0])+','+Y(q[1])).join(' ')}" fill="rgba(90,90,100,${p[2]>=1000?.07:.16})" stroke="#999" stroke-width=".7" vector-effect="non-scaling-stroke"/>`;}
+ const names={};pkOrder().forEach((o,k)=>names[o.i]='Parete '+(k+1));
+ pk.cand.forEach((c,i)=>{const on=pk.on.has(i),rev=pk.rev.has(i),[A,B]=cEnds(c,rev),ec=ecand(c,rev),mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2;
+  if(!on&&!pk.all&&!pk.prop.has(i))return;
+  const ln=`x1="${X(A[0])}" y1="${Y(A[1])}" x2="${X(B[0])}" y2="${Y(B[1])}"`;
+  s+=`<line ${ln} stroke="transparent" stroke-width="28" vector-effect="non-scaling-stroke" data-i="${i}" style="cursor:pointer"/>`;
+  s+=`<line ${ln} stroke="${on?'#1D9E75':'#d97706'}" stroke-width="${on?5:2}"${on?'':' stroke-dasharray="6 5" opacity=".55"'} vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+  if(on){const d=ec.d,e=ec.e,at=k=>[mx-d[0]*u*k,my-d[1]*u*k],tip=at(.5),bs=at(2.6),l=[bs[0]+e[0]*u*1.1,bs[1]+e[1]*u*1.1],r=[bs[0]-e[0]*u*1.1,bs[1]-e[1]*u*1.1],lb=at(4.4*Math.abs(d[1])+8.4*Math.abs(d[0])),hd=[at(2.6)[0]+e[0]*u*4.2,at(2.6)[1]+e[1]*u*4.2];
+   s+=`<polygon points="${X(tip[0])},${Y(tip[1])} ${X(l[0])},${Y(l[1])} ${X(r[0])},${Y(r[1])}" fill="#1D9E75" pointer-events="none"/>`;
+   s+=`<text x="${X(lb[0])}" y="${Y(lb[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.7}" font-weight="600" fill="#0F6E56" pointer-events="none">${names[i]}</text>`;
+   s+=`<g data-f="${i}" style="cursor:pointer"><circle cx="${X(hd[0])}" cy="${Y(hd[1])}" r="${u*1.3}" fill="#fff" stroke="#1D9E75" stroke-width="1.5" vector-effect="non-scaling-stroke"/><text x="${X(hd[0])}" y="${Y(hd[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.6}" fill="#0F6E56" pointer-events="none">⇄</text></g>`;}});
+ sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
+function pkClose(){$('pick').style.display='none';$('psvg').innerHTML='';pk=null;}
+function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.clientY;return q.matrixTransform(sv.getScreenCTM().inverse());}
+(()=>{const sv=$('psvg');let dr=null;
+ sv.addEventListener('wheel',e=>{if(!pk)return;e.preventDefault();const q=pkPt(e),k=e.deltaY>0?1.15:1/1.15,b=pk.vb;pk.vb=[q.x-(q.x-b[0])*k,q.y-(q.y-b[1])*k,b[2]*k,b[3]*k];sv.setAttribute('viewBox',pk.vb.join(' '));},{passive:false});
+ sv.addEventListener('pointerdown',e=>{if(!pk||e.button>1)return;dr={x:e.clientX,y:e.clientY,b:pk.vb.slice()};pk.moved=false;sv.setPointerCapture(e.pointerId);});
+ sv.addEventListener('pointermove',e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(Math.abs(dx)+Math.abs(dy)>5)pk.moved=true;if(!pk.moved)return;const k=sv.getScreenCTM().a;pk.vb=[dr.b[0]-dx/k,dr.b[1]-dy/k,dr.b[2],dr.b[3]];sv.setAttribute('viewBox',pk.vb.join(' '));});
+ sv.addEventListener('pointerup',e=>{dr=null;});
+ sv.addEventListener('click',e=>{if(!pk||pk.moved){return;}
+  const f=e.target.closest('[data-f]');if(f){const i=+f.dataset.f;pk.rev.has(i)?pk.rev.delete(i):pk.rev.add(i);pkDraw();return;}
+  const g=e.target.closest('[data-i]');if(g){const i=+g.dataset.i;pk.on.has(i)?pk.on.delete(i):pk.on.add(i);pkDraw();}});
+ $('pcan').onclick=pkClose;$('pall').onchange=e=>{if(pk){pk.all=e.target.checked;pkDraw();}};
+ addEventListener('keydown',e=>{if(e.key==='Escape'&&pk)pkClose();});
+ $('pok').onclick=()=>{if(!pk)return;if(!pk.on.size){alert('Clicca almeno una parete sulla pianta.');return;}
+  const {f,pcs,ext,H,cand}=pk,keep=$('pkeep').checked;
   push();const old=S.ann,n=newState();
   n.nome=f.name.replace(/\.dxf$/i,'');n.room={x0:ext.xmin,y0:ext.ymin,x1:ext.xmax,y1:ext.ymax,h:H};
-  const chiave=c=>{let a=Math.atan2(c.d[1],c.d[0])*180/Math.PI,k=((90-a)%360+360)%360;k=Math.round(k*10)/10;return k>=359.95?0:k;};
-  const ordina=(p,q)=>chiave(p)-chiave(q)||p.umin-q.umin;
-  const scelte=cand.filter((c,i)=>on.has(i)).sort(ordina),altre=cand.filter((c,i)=>!on.has(i)).sort(ordina);
   n.walls=[];n.ann={C:[],D:[]};
-  const pt=(c,u)=>[Math.round((u*c.e[0]+c.t*c.d[0])*10)/10+0,Math.round((u*c.e[1]+c.t*c.d[1])*10)/10+0];
-  for(const [c,show] of [...scelte.map(c=>[c,true]),...altre.map(c=>[c,false])]){
-   const k=freeKey(sideOfDir(c.e),n.walls,null);
-   n.walls.push({k,n:freeName(n.walls),auto:false,show,p1:pt(c,Math.floor(c.umin)),p2:pt(c,Math.ceil(c.umax))});n.ann[k]=[];}
+  for(const o of pkOrder()){const c=cand[o.i],rev=pk.rev.has(o.i),[A,B]=cEnds(c,rev),k=freeKey(sideOfDir(o.c.e),n.walls,null);
+   const w={k,n:freeName(n.walls),auto:false,show:true,p1:A,p2:B};if(rev)w.rev=true;n.walls.push(w);n.ann[k]=[];}
   n.pid=1;n.pieces=pcs.map(p=>{const o={id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]};if(p[7])o.q=p[7];return o;});
   n.nid=S.nid;if(keep){for(const k in old)if(n.ann[k])n.ann[k]=old[k];}
-  S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';closeModal();cur='D';rebuild();autosave();};}
+  pkClose();S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';cur='D';rebuild();autosave();};})();
 addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))$('dz').style.display='flex';});
 addEventListener('dragleave',e=>{if(!e.relatedTarget)$('dz').style.display='none';});
 addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault();});
