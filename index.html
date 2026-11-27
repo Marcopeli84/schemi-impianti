@@ -88,7 +88,7 @@ g[data-id],g[data-pid]{cursor:pointer}
  <aside id="props"></aside>
 </main>
 <div id="ovl"><div class="box" id="box"></div></div>
-<div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Clicca le pareti che ti servono: diventano verdi. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato. Rotellina = zoom, trascina = sposta.</span><button id="padd" title="Clicca due punti sulla pianta per creare una parete a mano">＋ Parete</button><button id="pnone" title="Deseleziona tutte le pareti">Nessuna</button><label class="ck"><input type="checkbox" id="pall"> Mostra altre possibili pareti</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Premi ＋ Parete e clicca i due estremi di ogni parete che ti serve. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato, un clic sulla parete la toglie. Rotellina = zoom, trascina = sposta.</span><button id="padd" title="Clicca due punti sulla pianta per creare una parete a mano">＋ Parete</button><button id="pnone" title="Deseleziona tutte le pareti">Nessuna</button><label class="ck"><input type="checkbox" id="pall"> Mostra pareti suggerite</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
 <div id="dz">Rilascia qui un file DXF o un lavoro salvato (.json)</div>
 <div id="print"></div>
 <script>
@@ -265,7 +265,7 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 function piecesSVG(v,live){
  const V=VIEWS[v],f=V.fr;let s='';
  const fx0=Math.min(U(v,f[0]),U(v,f[2])),fw=Math.abs(f[2]-f[0]);
- s+=`<rect class="fr" x="${fx0}" y="${-f[3]}" width="${fw}" height="${f[3]-f[1]}"/><g opacity="${OP}">`;
+ s+=`<g opacity="${OP}">`;
  for(const q of rects(v)){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
   const cl=(live&&selP===p.id)?'sl':(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
   if(V.lab==='y'&&p.q){s+=`<polygon class="${cl}" ${live?`data-pid="${p.id}" `:''}points="${[0,1,2,3].map(i=>U(v,p.q[2*i]).toFixed(1)+','+(-p.q[2*i+1]).toFixed(1)).join(' ')}"/>`;continue;}
@@ -309,9 +309,11 @@ function pt(e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=
 function toNat(q){return [(cur==='C'&&S.flip)?-q[0]:q[0],-q[1]];}
 function snap(u,v,ex){if(!snapOn)return [u,v,null];const tol=10/svg.getScreenCTM().a,e=E(cur),A=ann[cur].filter(a=>a.t==='s'&&a.id!==ex);
  for(const a of A)if(Math.hypot(a.u-u,a.v-v)<tol*1.8)return [a.u,a.v,a.id];
- let bu=u,bv=v,du=tol,dv=tol;
- for(const x of e[0].concat(A.flatMap(a=>[a.u,a.u-a.w/2,a.u+a.w/2]))){const d=Math.abs(x-u);if(d<du){du=d;bu=x;}}
- for(const y of e[1].concat(A.flatMap(a=>[a.v,a.v-a.h/2,a.v+a.h/2]))){const d=Math.abs(y-v);if(d<dv){dv=d;bv=y;}}
+ let bu=u,bv=v,du=tol,dv=tol;const F=VIEWS[cur].fr,tf=tol*2;
+ for(const x of [F[0],F[2]]){const d=Math.abs(x-u);if(d<tf&&d<du*2){du=-1;bu=x;}}
+ for(const y of [F[1],F[3]]){const d=Math.abs(y-v);if(d<tf&&d<dv*2){dv=-1;bv=y;}}
+ for(const x of du<0?[]:e[0].concat(A.flatMap(a=>[a.u,a.u-a.w/2,a.u+a.w/2]))){const d=Math.abs(x-u);if(d<du){du=d;bu=x;}}
+ for(const y of dv<0?[]:e[1].concat(A.flatMap(a=>[a.v,a.v-a.h/2,a.v+a.h/2]))){const d=Math.abs(y-v);if(d<dv){dv=d;bv=y;}}
  return [bu,bv,null];}
 function snapRect(r,ex){if(!snapOn)return [0,0];const tol=10/svg.getScreenCTM().a,e=edgesOf(cur,ex);let su=0,sv=0,bu=tol,bv=tol;
  for(const x of e[0])for(const k of [r[0],r[2]]){const d=x-k;if(Math.abs(d)<bu){bu=Math.abs(d);su=d;}}
@@ -624,10 +626,7 @@ function importDone(f,m){
  const ext={xmin:Math.min(...pcs.map(p=>p[0])),xmax:Math.max(...pcs.map(p=>p[3])),ymin:Math.min(...pcs.map(p=>p[1])),ymax:Math.max(...pcs.map(p=>p[4]))};
  const zmax=pcs.reduce((a,p)=>Math.max(a,p[5]),0),H=Math.max(2700,Math.ceil(zmax/100)*100);
  const cand=candidati(pcs);
- let prop=[];for(let i=0;i<cand.length;i++){const c=cand[i];if(!(c.off<=CLUS||c.multi))continue;
-  const dup=prop.some(j=>{const a=cand[j];if(a.d[0]*c.d[0]+a.d[1]*c.d[1]<.98||Math.abs(a.t-c.t)>700)return false;const ov=Math.min(a.umax,c.umax)-Math.max(a.umin,c.umin);return ov>.5*Math.min(a.umax-a.umin,c.umax-c.umin);});
-  if(!dup)prop.push(i);}
- if(!prop.length&&cand.length)prop=[0];
+  const prop=[];
  const w=ext.xmax-ext.xmin,h=ext.ymax-ext.ymin,mg=Math.max(w,h)*0.12+300;
  pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false,add:0,p1:null,mouse:null};
  $('pall').checked=false;$('pkw').style.display=(Object.values(ann).some(a=>a.length)||S.pieces.length)?'flex':'none';$('pkeep').checked=false;
