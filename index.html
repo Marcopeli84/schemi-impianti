@@ -235,8 +235,12 @@ function sideDef(w){const F=wallFrame(w),o=w.auto,T=o?1e9:(w.rev?BAND:TOLW),e=F.
  const allin=p=>{const c=cornersP(p),th=Math.atan2(c[1][1]-c[0][1],c[1][0]-c[0][0]);let df=((th-ph)*180/Math.PI)%90;if(df>45)df-=90;if(df<=-45)df+=90;return Math.abs(df)<=15;};
  const ur=p=>{let a=1e300,b=-1e300;for(const c of cornersP(p)){const u=c[0]*e[0]+c[1]*e[1];if(u<a)a=u;if(u>b)b=u;}return [a,b];};
  const dist=p=>{let m=1e300;for(const c of cornersP(p)){const s=t0-(c[0]*d[0]+c[1]*d[1]);if(s<m)m=s;}return m;};
+ let lo=-T,hi=BAND;
+ if(w.man&&!o){const inW=(p,l,h)=>{const s=dist(p);if(!(s<h&&s>=l))return false;const r=ur(p);return r[1]>F.u0&&r[0]<F.u1;};
+  let a=0,b=0;for(const p of S.pieces){if(inW(p,-TOLW,BAND))a++;if(inW(p,-BAND,TOLW))b++;}
+  if(b>a){lo=-BAND;hi=TOLW;}else{lo=-TOLW;hi=BAND;}}
  return {d:[F.u0,F.u1],F,
-  f:p=>{const s=dist(p);if(!(s<BAND&&s>=-T))return false;if(o)return true;if(obl&&!allin(p))return false;const r=ur(p);return r[1]>F.u0&&r[0]<F.u1;},
+  f:p=>{const s=dist(p);if(!(s<hi&&s>=lo))return false;if(o)return true;if(obl&&!allin(p))return false;const r=ur(p);return r[1]>F.u0&&r[0]<F.u1;},
   r:p=>{const r=ur(p);return [r[0],p.z0,r[1],p.z1];},
   mv:(p,a,b)=>{shift(p,a*e[0],a*e[1]);p.z0+=b;p.z1+=b;},
   mk:(u0,u1,z0,z1,dd)=>{const W=u=>[F.p1[0]+(u-F.u0)*e[0],F.p1[1]+(u-F.u0)*e[1]],c=[[u0,0],[u0,dd],[u1,dd],[u1,0]].map(([u,sx])=>{const q=W(u);return [q[0]-sx*d[0],q[1]-sx*d[1]];});
@@ -699,7 +703,7 @@ function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.cl
   n.nome=f.name.replace(/\.dxf$/i,'');n.room={x0:ext.xmin,y0:ext.ymin,x1:ext.xmax,y1:ext.ymax,h:H};
   n.walls=[];n.ann={C:[],D:[]};
   for(const o of pkOrder()){const c=cand[o.i],rev=pk.rev.has(o.i),[A,B]=cEnds(c,rev),k=freeKey(sideOfDir(o.c.e),n.walls,null);
-   const w={k,n:freeName(n.walls),auto:false,show:true,p1:A,p2:B};if(rev)w.rev=true;n.walls.push(w);n.ann[k]=[];}
+   const w={k,n:freeName(n.walls),auto:false,show:true,p1:A,p2:B};if(rev)w.rev=true;if(c.manual)w.man=true;n.walls.push(w);n.ann[k]=[];}
   n.pid=1;n.pieces=pcs.map(p=>{const o={id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]};if(p[7])o.q=p[7];return o;});
   n.nid=S.nid;if(keep){for(const k in old)if(n.ann[k])n.ann[k]=old[k];}
   pkClose();S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';cur='D';rebuild();autosave();};})();
