@@ -301,6 +301,7 @@ function piecesSVG(v,live){
  if(V.lab==='y')for(const w of S.walls){if(!w.show)continue;const F=wallFrame(w),mx=(F.p1[0]+F.p2[0])/2-F.d[0]*130,my=(F.p1[1]+F.p2[1])/2-F.d[1]*130;
   s+=`<line class="wl" x1="${U(v,F.p1[0])}" y1="${Y(v,F.p1[1])}" x2="${U(v,F.p2[0])}" y2="${Y(v,F.p2[1])}"/><text x="${U(v,mx)}" y="${Y(v,my)}" text-anchor="middle" dominant-baseline="central" font-size="90" fill="#0F6E56">${esc(w.n)}</text>`;}
  if(V.lab==='h')s+=`<line class="fl" x1="${fx0}" x2="${fx0+fw}" y1="0" y2="0"/>`;
+ if(V.lab==='h')s+=`<line class="ed" x1="${fx0}" x2="${fx0+fw}" y1="${Y(v,f[3])}" y2="${Y(v,f[3])}"/>`;
  if(V.lab==='h')for(const x of [fx0,fx0+fw])s+=`<line class="ed" x1="${x}" x2="${x}" y1="${Y(v,f[3])}" y2="${Y(v,f[1])}"/>`;
  return s;}
 function symSVG(a,v,hl){const x=U(v,a.u),y=Y(v,a.v),c=a.color||SYM[a.k][2],w=a.w,h=a.h,code=a.code||'';
