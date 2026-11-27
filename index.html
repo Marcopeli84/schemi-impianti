@@ -227,7 +227,7 @@ const SYM={
  CA:['Aspirazione cappa','CA','#2a9d8f','c',140,140],EL:['Allaccio elettrodomestico','E','#8e44ad','r',160,120],X:['Elemento libero','','#374151','r',200,200]};
 const SHAPES={c:'Cerchio',r:'Rettangolo',t:'Triangolo'};
 const PRE={B:{n:'Base',w:600,d:600,h:870,z:0},PE:{n:'Pensile',w:600,d:350,h:720,z:1400},CO:{n:'Colonna',w:600,d:600,h:2100,z:0},X:{n:'Mobile libero',w:600,d:600,h:600,z:0}};
-const STYLE='<style>.ps{fill:rgba(60,95,160,.06);stroke:rgba(40,70,130,.35);stroke-width:.6;vector-effect:non-scaling-stroke}.pm{fill:rgba(200,120,40,.07);stroke:rgba(190,110,30,.4);stroke-width:.6;vector-effect:non-scaling-stroke}.pu{fill:rgba(40,150,90,.09);stroke:rgba(30,130,80,.55);stroke-width:.8;vector-effect:non-scaling-stroke}.sl{fill:rgba(31,111,235,.14)!important;stroke:#1f6feb!important;stroke-width:1.6!important}.fr{fill:none;stroke:#222;stroke-width:1.5;vector-effect:non-scaling-stroke}.pf{fill:rgba(255,255,255,.93);stroke:rgba(25,45,85,.85);stroke-width:1.1;vector-effect:non-scaling-stroke}.pc{fill:none;stroke:rgba(40,70,130,.14);stroke-width:.5;vector-effect:non-scaling-stroke}.ing{fill:none;stroke:rgba(25,45,85,.9);stroke-width:1.6;stroke-dasharray:9 5;vector-effect:non-scaling-stroke}.fl{stroke:#222;stroke-width:2;vector-effect:non-scaling-stroke}.ed{stroke:#1D9E75;stroke-width:3;stroke-linecap:round;vector-effect:non-scaling-stroke}.wl{fill:none;stroke:#1D9E75;stroke-width:3;vector-effect:non-scaling-stroke}text{font-family:system-ui,Segoe UI,sans-serif}</style>';
+const STYLE='<style>.ps{fill:rgba(60,95,160,.06);stroke:rgba(40,70,130,.35);stroke-width:.6;vector-effect:non-scaling-stroke}.pm{fill:rgba(200,120,40,.07);stroke:rgba(190,110,30,.4);stroke-width:.6;vector-effect:non-scaling-stroke}.pu{fill:rgba(40,150,90,.09);stroke:rgba(30,130,80,.55);stroke-width:.8;vector-effect:non-scaling-stroke}.sl{fill:rgba(31,111,235,.14)!important;stroke:#1f6feb!important;stroke-width:1.6!important}.fr{fill:none;stroke:#222;stroke-width:1.5;vector-effect:non-scaling-stroke}.fl{stroke:#222;stroke-width:2;vector-effect:non-scaling-stroke}.ed{stroke:#1D9E75;stroke-width:3;stroke-linecap:round;vector-effect:non-scaling-stroke}.wl{fill:none;stroke:#1D9E75;stroke-width:3;vector-effect:non-scaling-stroke}text{font-family:system-ui,Segoe UI,sans-serif}</style>';
 
 /* ====================== viste ====================== */
 /* geometria di una parete: quali mobili vede (f), come si disegnano (r), come si spostano (mv), come se ne crea uno nuovo (mk) */
@@ -235,8 +235,7 @@ function sideDef(w){const F=wallFrame(w),o=w.auto,T=o?1e9:(w.rev?BAND:TOLW),e=F.
  const allin=p=>{const c=cornersP(p),th=Math.atan2(c[1][1]-c[0][1],c[1][0]-c[0][0]);let df=((th-ph)*180/Math.PI)%90;if(df>45)df-=90;if(df<=-45)df+=90;return Math.abs(df)<=15;};
  const ur=p=>{let a=1e300,b=-1e300;for(const c of cornersP(p)){const u=c[0]*e[0]+c[1]*e[1];if(u<a)a=u;if(u>b)b=u;}return [a,b];};
  const dist=p=>{let m=1e300;for(const c of cornersP(p)){const s=t0-(c[0]*d[0]+c[1]*d[1]);if(s<m)m=s;}return m;};
- const sr=p=>{let a=1e300,b=-1e300;for(const c of cornersP(p)){const s=t0-(c[0]*d[0]+c[1]*d[1]);if(s<a)a=s;if(s>b)b=s;}return [a,b];};
- return {d:[F.u0,F.u1],F,sr,
+ return {d:[F.u0,F.u1],F,
   f:p=>{const s=dist(p);if(!(s<BAND&&s>=-T))return false;if(o)return true;if(obl&&!allin(p))return false;const r=ur(p);return r[1]>F.u0&&r[0]<F.u1;},
   r:p=>{const r=ur(p);return [r[0],p.z0,r[1],p.z1];},
   mv:(p,a,b)=>{shift(p,a*e[0],a*e[1]);p.z0+=b;p.z1+=b;},
@@ -249,40 +248,19 @@ function buildViews(){
  const R=S.room,H=R.h,o={};
  for(const w of S.walls){if(!S.ann[w.k])S.ann[w.k]=[];if(!w.show)continue;
   const D=sideDef(w);
-  o[w.k]={n:w.n,s:'vista frontale della parete: '+wallDesc(w),lab:'h',f:D.f,r:D.r,sr:D.sr,mv:D.mv,mk:D.mk,fr:[D.d[0],0,D.d[1],H]};}
+  o[w.k]={n:w.n,s:'vista frontale della parete: '+wallDesc(w),lab:'h',f:D.f,r:D.r,mv:D.mv,mk:D.mk,fr:[D.d[0],0,D.d[1],H]};}
  const plan={lab:'y',f:()=>true,r:p=>[p.x0,p.y0,p.x1,p.y1],mv:(p,a,b)=>{shift(p,a,b);},fr:[R.x0,R.y0,R.x1,R.y1],
   mkp:(u,v,w,d,z0,h)=>({x0:u-w/2,x1:u+w/2,y0:v-d/2,y1:v+d/2,z0,z1:z0+h})};
  o.C={n:'Soffitto',s:'vista dal basso (planimetria soffitto)',...plan};
  o.D={n:'Pavimento',s:"vista dall'alto",...plan};
  return o;}
-let cache={},ec={},rc={};
-function inval(){cache={};ec={};rc={};}
+let cache={},ec={};
+function inval(){cache={};ec={};}
 const MHf=v=>(v==='C'&&S.flip)!==!!(S.mir&&S.mir[v]&&S.mir[v][0]);
 const MV=v=>!!(S.mir&&S.mir[v]&&S.mir[v][1]);
 const U=(v,u)=>MHf(v)?-u:u;
 const Y=(v,y)=>MV(v)?y:-y;
 function rects(v){if(cache[v])return cache[v];const V=VIEWS[v];return cache[v]=S.pieces.filter(V.f).map(p=>V.r(p).concat([p]));}
-/* viste parete: frontali (ante, cassetti) in primo piano; le strutture coperte da un frontale quasi spariscono;
-   dove non c'è il frontale (vano a giorno) resta l'ingombro della struttura */
-function roles(v){if(rc[v])return rc[v];const V=VIEWS[v];
- if(!V||V.lab!=='h'||!V.sr)return rc[v]={list:rects(v),cls:null,ing:[]};
- const it=rects(v).map(q=>({u0:q[0],z0:q[1],u1:q[2],z1:q[3],p:q[4],s:V.sr(q[4]),q})),nm=it.filter(i=>i.p.t!=='M');
- const ins=(i,x,z)=>x>=i.u0&&x<=i.u1&&z>=i.z0&&z<=i.z1;
- const cand=nm.filter(i=>i.s[1]-i.s[0]<=45&&i.u1-i.u0>=80&&i.z1-i.z0>=80);
- const fr=cand.filter(c=>{const x=(c.u0+c.u1)/2,z=(c.z0+c.z1)/2;return !nm.some(o=>o!==c&&o.s[1]>c.s[1]+20&&ins(o,x,z));});
- const fs=new Set(fr),cls=new Map(),unc=[];
- for(const f of fr)cls.set(f.p.id,'pf');
- for(const o of nm){if(fs.has(o))continue;const x=(o.u0+o.u1)/2,z=(o.z0+o.z1)/2;
-  if(fr.some(f=>f.s[1]>=o.s[1]-5&&ins(f,x,z)))cls.set(o.p.id,'pc');
-  else if(o.u1-o.u0<=40&&fr.some(f=>f.s[1]>=o.s[1]-5&&(Math.abs(o.u1-f.u0)<=30||Math.abs(o.u0-f.u1)<=30)&&Math.min(o.z1,f.z1)-Math.max(o.z0,f.z0)>=.5*(f.z1-f.z0)))cls.set(o.p.id,'pc');
-  else if(o.z1-o.z0>=80)unc.push(o);}
- const ing=[];
- if(unc.length&&unc.length<=1500){const par=unc.map((_,i)=>i),fd=i=>{while(par[i]!==i){par[i]=par[par[i]];i=par[i];}return i;},T=15;
-  for(let i=0;i<unc.length;i++)for(let j=i+1;j<unc.length;j++){const a=unc[i],b=unc[j];
-   if(a.u0<=b.u1+T&&b.u0<=a.u1+T&&a.z0<=b.z1+T&&b.z0<=a.z1+T)par[fd(i)]=fd(j);}
-  const g={};unc.forEach((o,i)=>{const r=fd(i),b=g[r]||(g[r]=[1e300,1e300,-1e300,-1e300]);b[0]=Math.min(b[0],o.u0);b[1]=Math.min(b[1],o.z0);b[2]=Math.max(b[2],o.u1);b[3]=Math.max(b[3],o.z1);});
-  for(const k in g){const b=g[k];if(b[2]-b[0]>=150&&b[3]-b[1]>=150)ing.push(b);}}
- return rc[v]={list:it.slice().sort((a,b)=>a.s[1]-b.s[1]).map(i=>i.q),cls,ing};}
 function edgesOf(v,ex){const s=new Set(),t=new Set(),V=VIEWS[v];
  for(const p of S.pieces){if(p.id===ex||!V.f(p))continue;const r=V.r(p);s.add(Math.round(r[0]));s.add(Math.round(r[2]));t.add(Math.round(r[1]));t.add(Math.round(r[3]));}
  const f=V.fr;[f[0],f[2]].forEach(x=>s.add(x));[f[1],f[3]].forEach(x=>t.add(x));return [[...s],[...t]];}
@@ -292,11 +270,10 @@ function piecesSVG(v,live){
  const V=VIEWS[v],f=V.fr;let s='';
  const fx0=Math.min(U(v,f[0]),U(v,f[2])),fw=Math.abs(f[2]-f[0]);
  s+=`<g opacity="${OP}">`;
- const RL=roles(v);for(const q of RL.list){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
-  const cl=(live&&selP===p.id)?'sl':(RL.cls&&RL.cls.get(p.id))||(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
+ for(const q of rects(v)){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
+  const cl=(live&&selP===p.id)?'sl':(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
   if(V.lab==='y'&&p.q){s+=`<polygon class="${cl}" ${live?`data-pid="${p.id}" `:''}points="${[0,1,2,3].map(i=>U(v,p.q[2*i]).toFixed(1)+','+Y(v,p.q[2*i+1]).toFixed(1)).join(' ')}"/>`;continue;}
   s+=`<rect class="${cl}" ${live?`data-pid="${p.id}" `:''}x="${x.toFixed(1)}" y="${(MV(v)?q[1]:-q[3]).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`;}
- for(const b of RL.ing){const x=Math.min(U(v,b[0]),U(v,b[2]));s+=`<rect class="ing" x="${x.toFixed(1)}" y="${(MV(v)?b[1]:-b[3]).toFixed(1)}" width="${Math.abs(b[2]-b[0]).toFixed(1)}" height="${(b[3]-b[1]).toFixed(1)}"/>`;}
  s+='</g>';
  if(V.lab==='y')for(const w of S.walls){if(!w.show)continue;const F=wallFrame(w),mx=(F.p1[0]+F.p2[0])/2-F.d[0]*130,my=(F.p1[1]+F.p2[1])/2-F.d[1]*130;
   s+=`<line class="wl" x1="${U(v,F.p1[0])}" y1="${Y(v,F.p1[1])}" x2="${U(v,F.p2[0])}" y2="${Y(v,F.p2[1])}"/><text x="${U(v,mx)}" y="${Y(v,my)}" text-anchor="middle" dominant-baseline="central" font-size="90" fill="#0F6E56">${esc(w.n)}</text>`;}
@@ -659,7 +636,7 @@ function importDone(f,m){
  const cand=candidati(pcs);
   const prop=[];
  const w=ext.xmax-ext.xmin,h=ext.ymax-ext.ymin,mg=Math.max(w,h)*0.12+300;
- pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false,add:0,p1:null,mouse:null};
+ pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false,add:0,p1:null,mouse:null,hit:false,pts:null,dots:''};
  $('pall').checked=false;$('pkw').style.display=(Object.values(ann).some(a=>a.length)||S.pieces.length)?'flex':'none';$('pkeep').checked=false;
  $('pick').style.display='flex';pkDraw();}
 function pkOrder(){return [...pk.on].map(i=>({i,c:ecand(pk.cand[i],pk.rev.has(i))})).sort((a,b)=>chiave(a.c)-chiave(b.c)||pk.cand[a.i].umin-pk.cand[b.i].umin);}
@@ -676,20 +653,35 @@ function pkDraw(){
    s+=`<polygon points="${X(tip[0])},${Y(tip[1])} ${X(l[0])},${Y(l[1])} ${X(r[0])},${Y(r[1])}" fill="#1D9E75" pointer-events="none"/>`;
    s+=`<text x="${X(lb[0])}" y="${Y(lb[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.7}" font-weight="600" fill="#0F6E56" pointer-events="none">${names[i]}</text>`;
    s+=`<g data-f="${i}" style="cursor:pointer"><circle cx="${X(hd[0])}" cy="${Y(hd[1])}" r="${u*1.3}" fill="#fff" stroke="#1D9E75" stroke-width="1.5" vector-effect="non-scaling-stroke"/><text x="${X(hd[0])}" y="${Y(hd[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.6}" fill="#0F6E56" pointer-events="none">⇄</text></g>`;}});
- if(pk.add&&pk.p1){const a=pk.p1,b=pk.mouse||a;s+=`<line x1="${X(a[0])}" y1="${Y(a[1])}" x2="${X(b[0])}" y2="${Y(b[1])}" stroke="#1D9E75" stroke-width="3" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" pointer-events="none"/><circle cx="${X(a[0])}" cy="${Y(a[1])}" r="${u*.7}" fill="#1D9E75" pointer-events="none"/>`;}
+ if(pk.add){pkPts();s+=`<path d="${pk.dots}" fill="none" stroke="#d97706" stroke-width="6" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity=".8" pointer-events="none"/>`;}
+ s+='<g id="pov" pointer-events="none"></g>';
  sv.style.cursor=pk.add?'crosshair':'';
- sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));$('padd').classList.toggle('pri',!!pk.add);$('padd').textContent=pk.add?(pk.p1?'Clicca il 2° punto':'Clicca il 1° punto'):'＋ Parete';$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
+ sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));pkOv();$('padd').classList.toggle('pri',!!pk.add);$('padd').textContent=pk.add?(pk.p1?'Clicca il 2° punto':'Clicca il 1° punto'):'＋ Parete';$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
+function pkPts(){if(pk.pts)return pk.pts;const m=new Map();
+ for(const p of pk.pcs)for(const c of cornersA(p)){const x=Math.round(c[0]),y=Math.round(c[1]);m.set(x+','+y,[x,y]);}
+ pk.pts=[...m.values()];pk.dots=pk.pts.map(q=>'M'+q[0]+' '+(-q[1])+'h0').join('');return pk.pts;}
+function pkOv(){const g=$('pov');if(!g||!pk)return;const k=1/$('psvg').getScreenCTM().a;let s='';
+ const X=x=>x.toFixed(1),Y=y=>(-y).toFixed(1);
+ if(pk.add&&pk.p1){const a=pk.p1,b=pk.mouse||a;
+  s+=`<line x1="${X(a[0])}" y1="${Y(a[1])}" x2="${X(b[0])}" y2="${Y(b[1])}" stroke="#1D9E75" stroke-width="3" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/><circle cx="${X(a[0])}" cy="${Y(a[1])}" r="${X(7*k)}" fill="#1D9E75"/>`;}
+ if(pk.add&&pk.mouse){const m=pk.mouse;
+  if(pk.hit)s+=`<circle cx="${X(m[0])}" cy="${Y(m[1])}" r="${X(13*k)}" fill="rgba(29,158,117,.22)" stroke="#1D9E75" stroke-width="3" vector-effect="non-scaling-stroke"/><path d="M${X(m[0]-20*k)} ${Y(m[1])}h${X(40*k)}M${X(m[0])} ${Y(m[1])-20*k}v${X(40*k)}" stroke="#1D9E75" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+  else s+=`<circle cx="${X(m[0])}" cy="${Y(m[1])}" r="${X(4*k)}" fill="none" stroke="#64748b" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`;}
+ g.innerHTML=s;}
 function pkClose(){$('pick').style.display='none';$('psvg').innerHTML='';pk=null;}
 function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.clientY;return q.matrixTransform(sv.getScreenCTM().inverse());}
 (()=>{const sv=$('psvg');let dr=null;
- sv.addEventListener('wheel',e=>{if(!pk)return;e.preventDefault();const q=pkPt(e),k=e.deltaY>0?1.15:1/1.15,b=pk.vb;pk.vb=[q.x-(q.x-b[0])*k,q.y-(q.y-b[1])*k,b[2]*k,b[3]*k];sv.setAttribute('viewBox',pk.vb.join(' '));},{passive:false});
+ sv.addEventListener('wheel',e=>{if(!pk)return;e.preventDefault();const q=pkPt(e),k=e.deltaY>0?1.15:1/1.15,b=pk.vb;pk.vb=[q.x-(q.x-b[0])*k,q.y-(q.y-b[1])*k,b[2]*k,b[3]*k];sv.setAttribute('viewBox',pk.vb.join(' '));pkOv();},{passive:false});
  sv.addEventListener('pointerdown',e=>{if(!pk||e.button>1)return;dr={x:e.clientX,y:e.clientY,b:pk.vb.slice()};pk.moved=false;sv.setPointerCapture(e.pointerId);});
  sv.addEventListener('pointermove',e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(Math.abs(dx)+Math.abs(dy)>5)pk.moved=true;if(!pk.moved)return;const k=sv.getScreenCTM().a;pk.vb=[dr.b[0]-dx/k,dr.b[1]-dy/k,dr.b[2],dr.b[3]];sv.setAttribute('viewBox',pk.vb.join(' '));});
  sv.addEventListener('pointerup',e=>{dr=null;});
- const snap=(q,from)=>{let b=null,bd=pk.u*2.5;for(const p of pk.pcs)for(const c of cornersA(p)){const d=Math.hypot(c[0]-q.x,c[1]+q.y);if(d<bd){bd=d;b=[c[0],c[1]];}}
-  let r=b||[q.x,-q.y];if(!b&&from){const dx=r[0]-from[0],dy=r[1]-from[1],L=Math.hypot(dx,dy),a=Math.atan2(dy,dx)*180/Math.PI;if(L>1)for(const k of [0,90,180,-90,-180])if(Math.abs(a-k)<2.5){const rr=k*Math.PI/180;r=[from[0]+L*Math.cos(rr),from[1]+L*Math.sin(rr)];break;}}
+ const snap=(q,from)=>{const k=1/sv.getScreenCTM().a;let b=null,bd=16*k;
+  for(const c of pkPts()){const d=Math.hypot(c[0]-q.x,c[1]+q.y);if(d<bd){bd=d;b=c;}}
+  for(const i of pk.on)for(const c of cEnds(pk.cand[i],false)){const d=Math.hypot(c[0]-q.x,c[1]+q.y);if(d<bd){bd=d;b=c;}}
+  pk.hit=!!b;let r=b?[b[0],b[1]]:[q.x,-q.y];
+  if(!b&&from){const dx=r[0]-from[0],dy=r[1]-from[1],L=Math.hypot(dx,dy),a=Math.atan2(dy,dx)*180/Math.PI;if(L>1)for(const k of [0,90,180,-90,-180])if(Math.abs(a-k)<2.5){const rr=k*Math.PI/180;r=[from[0]+L*Math.cos(rr),from[1]+L*Math.sin(rr)];break;}}
   return r;};
- sv.addEventListener('pointermove',e=>{if(pk&&pk.add&&pk.p1){pk.mouse=snap(pkPt(e),pk.p1);pkDraw();}});
+ sv.addEventListener('pointermove',e=>{if(pk&&pk.add&&!dr){pk.mouse=snap(pkPt(e),pk.p1);pkOv();}});
  sv.addEventListener('click',e=>{if(!pk||pk.moved){return;}
   if(pk.add){const P=snap(pkPt(e),pk.p1);
    if(!pk.p1){pk.p1=P;pkDraw();return;}
