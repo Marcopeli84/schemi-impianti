@@ -68,6 +68,7 @@ g[data-id],g[data-pid]{cursor:pointer}
  <h1>Schemi impianti</h1><input id="pn" title="Nome del progetto" spellcheck="false">
  <div class="tabs" id="tabs"></div>
  <label class="ck" id="flipbox" style="display:none"><input type="checkbox" id="flip"> Specchia (vista reale dal basso)</label>
+ <button id="mh" title="Specchia questa vista da sinistra a destra">↔ Specchia</button><button id="mvv" title="Specchia questa vista dall'alto in basso">↕ Specchia</button>
  <span class="sp"></span>
  <label class="ck" title="Più bassa = mobili più leggeri sullo sfondo">Mobili <input type="range" id="op" min="15" max="100" value="70" style="width:70px"></label>
  <button id="bnew" title="Nuovo progetto, stanza vuota">Nuovo</button>
@@ -218,7 +219,7 @@ function cornersP(p){return p.q?[[p.q[0],p.q[1]],[p.q[2],p.q[3]],[p.q[4],p.q[5]]
 function shift(p,dx,dy){p.x0+=dx;p.x1+=dx;p.y0+=dy;p.y1+=dy;if(p.q)for(let i=0;i<8;i+=2){p.q[i]+=dx;p.q[i+1]+=dy;}}
 const $=id=>document.getElementById(id),svg=$('svg');
 function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},walls:defWalls(),pieces:[],
- ann:{ymax:[],xmax:[],ymin:[],xmin:[],C:[],D:[]},flip:false,ref:{h:'L',v:'p'},nid:1,pid:1};}
+ ann:{ymax:[],xmax:[],ymin:[],xmin:[],C:[],D:[]},flip:false,mir:{},ref:{h:'L',v:'p'},nid:1,pid:1};}
 let S=newState(),ann=S.ann,VIEWS={},cur='D',tool='sel',sym='P',pre='B',snapOn=true,sel=null,selP=null,hist=[],vb={},dim=null,mouse=null,drag=null,OP=.7;
 const SYM={
  P:['Presa','P','#c0392b','c',140,140],PD:['Presa doppia','PP','#c0392b','r',220,120],IN:['Interruttore','I','#7c3aed','r',100,100],LU:['Punto luce','L','#b8860b','c',140,140],
@@ -255,7 +256,10 @@ function buildViews(){
  return o;}
 let cache={},ec={};
 function inval(){cache={};ec={};}
-const U=(v,u)=>(v==='C'&&S.flip)?-u:u;
+const MHf=v=>(v==='C'&&S.flip)!==!!(S.mir&&S.mir[v]&&S.mir[v][0]);
+const MV=v=>!!(S.mir&&S.mir[v]&&S.mir[v][1]);
+const U=(v,u)=>MHf(v)?-u:u;
+const Y=(v,y)=>MV(v)?y:-y;
 function rects(v){if(cache[v])return cache[v];const V=VIEWS[v];return cache[v]=S.pieces.filter(V.f).map(p=>V.r(p).concat([p]));}
 function edgesOf(v,ex){const s=new Set(),t=new Set(),V=VIEWS[v];
  for(const p of S.pieces){if(p.id===ex||!V.f(p))continue;const r=V.r(p);s.add(Math.round(r[0]));s.add(Math.round(r[2]));t.add(Math.round(r[1]));t.add(Math.round(r[3]));}
@@ -268,31 +272,31 @@ function piecesSVG(v,live){
  s+=`<g opacity="${OP}">`;
  for(const q of rects(v)){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
   const cl=(live&&selP===p.id)?'sl':(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
-  if(V.lab==='y'&&p.q){s+=`<polygon class="${cl}" ${live?`data-pid="${p.id}" `:''}points="${[0,1,2,3].map(i=>U(v,p.q[2*i]).toFixed(1)+','+(-p.q[2*i+1]).toFixed(1)).join(' ')}"/>`;continue;}
-  s+=`<rect class="${cl}" ${live?`data-pid="${p.id}" `:''}x="${x.toFixed(1)}" y="${(-q[3]).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`;}
+  if(V.lab==='y'&&p.q){s+=`<polygon class="${cl}" ${live?`data-pid="${p.id}" `:''}points="${[0,1,2,3].map(i=>U(v,p.q[2*i]).toFixed(1)+','+Y(v,p.q[2*i+1]).toFixed(1)).join(' ')}"/>`;continue;}
+  s+=`<rect class="${cl}" ${live?`data-pid="${p.id}" `:''}x="${x.toFixed(1)}" y="${(MV(v)?q[1]:-q[3]).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`;}
  s+='</g>';
  if(V.lab==='y')for(const w of S.walls){if(!w.show)continue;const F=wallFrame(w),mx=(F.p1[0]+F.p2[0])/2-F.d[0]*130,my=(F.p1[1]+F.p2[1])/2-F.d[1]*130;
-  s+=`<line class="wl" x1="${U(v,F.p1[0])}" y1="${-F.p1[1]}" x2="${U(v,F.p2[0])}" y2="${-F.p2[1]}"/><text x="${U(v,mx)}" y="${-my}" text-anchor="middle" dominant-baseline="central" font-size="90" fill="#0F6E56">${esc(w.n)}</text>`;}
+  s+=`<line class="wl" x1="${U(v,F.p1[0])}" y1="${Y(v,F.p1[1])}" x2="${U(v,F.p2[0])}" y2="${Y(v,F.p2[1])}"/><text x="${U(v,mx)}" y="${Y(v,my)}" text-anchor="middle" dominant-baseline="central" font-size="90" fill="#0F6E56">${esc(w.n)}</text>`;}
  if(V.lab==='h')s+=`<line class="fl" x1="${fx0}" x2="${fx0+fw}" y1="0" y2="0"/>`;
- if(V.lab==='h')for(const x of [fx0,fx0+fw])s+=`<line class="ed" x1="${x}" x2="${x}" y1="${-f[3]}" y2="${-f[1]}"/>`;
+ if(V.lab==='h')for(const x of [fx0,fx0+fw])s+=`<line class="ed" x1="${x}" x2="${x}" y1="${Y(v,f[3])}" y2="${Y(v,f[1])}"/>`;
  return s;}
-function symSVG(a,v,hl){const x=U(v,a.u),y=-a.v,c=a.color||SYM[a.k][2],w=a.w,h=a.h,code=a.code||'';
+function symSVG(a,v,hl){const x=U(v,a.u),y=Y(v,a.v),c=a.color||SYM[a.k][2],w=a.w,h=a.h,code=a.code||'';
  let sh;if(a.shape==='c')sh=`<ellipse rx="${w/2}" ry="${h/2}" fill="#fff" stroke="${c}" stroke-width="7"/>`;
  else if(a.shape==='t')sh=`<polygon points="0,${-h/2} ${w/2},${h/2} ${-w/2},${h/2}" fill="#fff" stroke="${c}" stroke-width="7" stroke-linejoin="round"/>`;
  else sh=`<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="${c}" stroke-width="7"/>`;
  const fs=Math.max(24,Math.min(h*.5,(w*.8)/Math.max(1,code.length*.62),70)),ty=a.shape==='t'?h/6:0;
  return `<g data-id="${a.id}" transform="translate(${x},${y})"><rect x="${-w/2-25}" y="${-h/2-25}" width="${w+50}" height="${h+50}" fill="transparent"/>${hl?`<rect x="${-w/2-18}" y="${-h/2-18}" width="${w+36}" height="${h+36}" fill="none" stroke="#1f6feb" stroke-width="6" stroke-dasharray="14 10"/>`:''}${sh}<text y="${ty+2}" text-anchor="middle" dominant-baseline="central" font-size="${fs}" font-weight="700" fill="${c}">${esc(code)}</text>${a.label?`<text y="${h/2+52}" text-anchor="middle" font-size="56" fill="#222" stroke="#fff" stroke-width="12" paint-order="stroke">${esc(a.label)}</text>`:''}</g>`;}
-function anchor(v,s,k,ax){const dr=(v==='C'&&S.flip)?-1:1;
+function anchor(v,s,k,ax){const dr=MHf(v)?-1:1,dv=MV(v)?-1:1;
  if(ax==='h')return s.u+(k==='r'?1:k==='l'?-1:0)*dr*s.w/2;
- return s.v+(k==='t'?1:k==='b'?-1:0)*s.h/2;}
+ return s.v+(k==='t'?1:k==='b'?-1:0)*dv*s.h/2;}
 function resolve(v,d){for(const k of ['r1','r2']){const r=d[k];if(!r)continue;const s=ann[v].find(a=>a.id===r.id&&a.t==='s');if(!s){d[k]=null;continue;}const i=k==='r1';
   if(d.ax==='h'){const p=anchor(v,s,r.k,'h');if(i){d.a=p;d.p1=s.v;}else{d.b=p;d.p2=s.v;}}else{const p=anchor(v,s,r.k,'v');if(i){d.a=p;d.p1=s.u;}else{d.b=p;d.p2=s.u;}}}}
 function dimSVG(d,v,hl,pv){
  const len=Math.round(Math.abs(d.b-d.a)),t=d.txt||len,col=hl?'#1f6feb':'#111';let s='';
  const tk=(x,y)=>`<line x1="${x-28}" y1="${y+28}" x2="${x+28}" y2="${y-28}" stroke="${col}" stroke-width="5"/>`;
- if(d.ax==='h'){const ya=-d.p1,yb=-d.p2,yo=-d.off,xa=U(v,d.a),xb=U(v,d.b),sa=Math.sign(yo-ya)||1,sb=Math.sign(yo-yb)||1;
+ if(d.ax==='h'){const ya=Y(v,d.p1),yb=Y(v,d.p2),yo=Y(v,d.off),xa=U(v,d.a),xb=U(v,d.b),sa=Math.sign(yo-ya)||1,sb=Math.sign(yo-yb)||1;
   s=`<line x1="${xa}" y1="${ya}" x2="${xa}" y2="${yo+sa*35}" stroke="${col}" stroke-width="3"/><line x1="${xb}" y1="${yb}" x2="${xb}" y2="${yo+sb*35}" stroke="${col}" stroke-width="3"/><line x1="${xa}" y1="${yo}" x2="${xb}" y2="${yo}" stroke="${col}" stroke-width="4"/>${tk(xa,yo)}${tk(xb,yo)}<text x="${(xa+xb)/2}" y="${yo-22}" text-anchor="middle" font-size="72" fill="${col}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(t)}</text><line x1="${xa}" y1="${yo}" x2="${xb}" y2="${yo}" stroke="transparent" stroke-width="60"/>`;}
- else{const xa=U(v,d.p1),xb=U(v,d.p2),xo=U(v,d.off),ya=-d.a,yb=-d.b,sa=Math.sign(xo-xa)||1,sb=Math.sign(xo-xb)||1;
+ else{const xa=U(v,d.p1),xb=U(v,d.p2),xo=U(v,d.off),ya=Y(v,d.a),yb=Y(v,d.b),sa=Math.sign(xo-xa)||1,sb=Math.sign(xo-xb)||1;
   s=`<line x1="${xa}" y1="${ya}" x2="${xo+sa*35}" y2="${ya}" stroke="${col}" stroke-width="3"/><line x1="${xb}" y1="${yb}" x2="${xo+sb*35}" y2="${yb}" stroke="${col}" stroke-width="3"/><line x1="${xo}" y1="${ya}" x2="${xo}" y2="${yb}" stroke="${col}" stroke-width="4"/>${tk(xo,ya)}${tk(xo,yb)}<text transform="translate(${xo-22},${(ya+yb)/2}) rotate(-90)" text-anchor="middle" font-size="72" fill="${col}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(t)}</text><line x1="${xo}" y1="${ya}" x2="${xo}" y2="${yb}" stroke="transparent" stroke-width="60"/>`;}
  return pv?`<g opacity=".7">${s}</g>`:`<g data-id="${d.id}">${s}</g>`;}
 function annSVG(v,live){let s='';
@@ -300,14 +304,14 @@ function annSVG(v,live){let s='';
  const ord={d:0,x:1,s:2};
  for(const a of ann[v].slice().sort((p,q)=>ord[p.t]-ord[q.t])){const hl=live&&sel===a.id;
  if(a.t==='s')s+=symSVG(a,v,hl);else if(a.t==='d')s+=dimSVG(a,v,hl);
- else s+=`<g data-id="${a.id}"><text x="${U(v,a.u)}" y="${-a.v}" font-size="80" fill="${hl?'#1f6feb':'#111'}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(a.txt).split('\n').map((l,i)=>`<tspan x="${U(v,a.u)}" dy="${i?90:0}">${esc(l)}</tspan>`).join('')}</text></g>`;}
+ else s+=`<g data-id="${a.id}"><text x="${U(v,a.u)}" y="${Y(v,a.v)}" font-size="80" fill="${hl?'#1f6feb':'#111'}" stroke="#fff" stroke-width="14" paint-order="stroke">${esc(a.txt).split('\n').map((l,i)=>`<tspan x="${U(v,a.u)}" dy="${i?90:0}">${esc(l)}</tspan>`).join('')}</text></g>`;}
  return s;}
-function fitVB(v){const f=VIEWS[v].fr,m=250,x0=Math.min(U(v,f[0]),U(v,f[2]));return [x0-m,-f[3]-m,Math.abs(f[2]-f[0])+2*m,f[3]-f[1]+2*m];}
+function fitVB(v){const f=VIEWS[v].fr,m=250,x0=Math.min(U(v,f[0]),U(v,f[2]));return [x0-m,(MV(v)?f[1]:-f[3])-m,Math.abs(f[2]-f[0])+2*m,f[3]-f[1]+2*m];}
 function setVB(){svg.setAttribute('viewBox',vb[cur].join(' '));}
 function drawAll(){$('gp').innerHTML=STYLE+piecesSVG(cur,true);drawAnn();drawOv();}
 function drawAnn(){$('ga').innerHTML=annSVG(cur,true);}
 function pt(e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return [q.x,q.y];}
-function toNat(q){return [(cur==='C'&&S.flip)?-q[0]:q[0],-q[1]];}
+function toNat(q){return [MHf(cur)?-q[0]:q[0],MV(cur)?q[1]:-q[1]];}
 function snap(u,v,ex){if(!snapOn)return [u,v,null];const tol=10/svg.getScreenCTM().a,e=E(cur),A=ann[cur].filter(a=>a.t==='s'&&a.id!==ex);
  for(const a of A)if(Math.hypot(a.u-u,a.v-v)<tol*1.8)return [a.u,a.v,a.id];
  let bu=u,bv=v,du=tol,dv=tol;const F=VIEWS[cur].fr,tf=tol*2;
@@ -326,8 +330,8 @@ function hint(){let h;if(tool==='sym')h=`Clicca nel disegno per mettere «${SYM[
  else if(tool==='dim')h=!dim?'Quota — 1) clicca il primo punto (bordo di un mobile o un simbolo).':!dim.p2?'Quota — 2) clicca il secondo punto.':'Quota — 3) clicca dove vuoi la linea di quota.';
  else h=HINT[tool];$('hint').textContent=h;svg.classList.toggle('cross',tool!=='sel'&&tool!=='mob');}
 function drawOv(){let s='';
- if(mouse&&tool!=='sel'&&tool!=='mob'){const [u,v]=mouse;s+=`<circle cx="${U(cur,u)}" cy="${-v}" r="20" fill="none" stroke="#1f6feb" stroke-width="4"/>`;}
- if(dim&&mouse){if(dim.p1&&!dim.p2)s+=`<circle cx="${U(cur,dim.p1[0])}" cy="${-dim.p1[1]}" r="20" fill="#1f6feb"/><line x1="${U(cur,dim.p1[0])}" y1="${-dim.p1[1]}" x2="${U(cur,mouse[0])}" y2="${-mouse[1]}" stroke="#1f6feb" stroke-width="3" stroke-dasharray="12 8"/>`;const d=dimDraft();if(d)s+=dimSVG(d,cur,false,true);}
+ if(mouse&&tool!=='sel'&&tool!=='mob'){const [u,v]=mouse;s+=`<circle cx="${U(cur,u)}" cy="${Y(cur,v)}" r="20" fill="none" stroke="#1f6feb" stroke-width="4"/>`;}
+ if(dim&&mouse){if(dim.p1&&!dim.p2)s+=`<circle cx="${U(cur,dim.p1[0])}" cy="${Y(cur,dim.p1[1])}" r="20" fill="#1f6feb"/><line x1="${U(cur,dim.p1[0])}" y1="${Y(cur,dim.p1[1])}" x2="${U(cur,mouse[0])}" y2="${Y(cur,mouse[1])}" stroke="#1f6feb" stroke-width="3" stroke-dasharray="12 8"/>`;const d=dimDraft();if(d)s+=dimSVG(d,cur,false,true);}
  $('go').innerHTML=s;}
 function dimDraft(){if(!dim||!dim.p2||!mouse)return null;return dim.ax==='h'?{ax:'h',a:dim.p1[0],b:dim.p2[0],p1:dim.p1[1],p2:dim.p2[1],off:mouse[1]}:{ax:'v',a:dim.p1[1],b:dim.p2[1],p1:dim.p1[0],p2:dim.p2[0],off:mouse[0]};}
 
@@ -335,13 +339,13 @@ function dimDraft(){if(!dim||!dim.p2||!mouse)return null;return dim.ax==='h'?{ax
 function snapJ(){return JSON.stringify({room:S.room,walls:S.walls,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
 function push(){hist.push(snapJ());if(hist.length>60)hist.shift();}
 function undo(){if(!hist.length)return;Object.assign(S,JSON.parse(hist.pop()));ann=S.ann;sel=selP=null;$('pn').value=S.nome;rebuild();autosave();}
-function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,walls:S.walls,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
+function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,walls:S.walls,pieces:S.pieces,ann:S.ann,flip:S.flip,mir:S.mir,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
 function autosave(){}
 function loadState(d){
  if(!d||d.v!==2||!Array.isArray(d.pieces)||!d.room||!d.ann)throw new Error('formato');
  const n=newState();
  const walls=(Array.isArray(d.walls)&&d.walls.length)?d.walls.map(w=>migrateWall(Object.assign({},w,{show:w.show!==false}))):migrateWalls(d);
- S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,walls,pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
+ S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,walls,pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,mir:(d.mir&&typeof d.mir==='object')?d.mir:{},ref:d.ref||n.ref});
  for(const v in S.ann)for(const a of S.ann[v]){if(a.t==='s'){const s=SYM[a.k];if(s&&!a.shape){a.shape=s[3];a.w=s[4];a.h=s[5];a.code=s[1];a.color=s[2];}}if(a.t==='d')for(const k of ['r1','r2'])if(typeof a[k]==='number')a[k]={id:a[k],k:'c'};}
  S.nid=Math.max(d.nid||1,1+Math.max(0,...Object.values(S.ann).flat().map(a=>a.id)));
  S.pid=Math.max(d.pid||1,1+Math.max(0,...S.pieces.map(p=>p.id||0)));
@@ -408,9 +412,9 @@ addEventListener('keydown',e=>{
  if(e.key==='Escape'){dim=null;tool='sel';tb();hint();drawOv();return;}
  if((e.key==='Delete'||e.key==='Backspace')&&(sel||selP)){e.preventDefault();del();return;}
  if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undo();return;}
- const st=e.shiftKey?100:10,fl=(cur==='C'&&S.flip)?-1:1;
+ const st=e.shiftKey?100:10,fl=MHf(cur)?-1:1,fv=MV(cur)?-1:1;
  if(e.key.startsWith('Arrow')){
-  const dx=e.key==='ArrowLeft'?-st:e.key==='ArrowRight'?st:0,dy=e.key==='ArrowUp'?st:e.key==='ArrowDown'?-st:0;
+  const dx=e.key==='ArrowLeft'?-st:e.key==='ArrowRight'?st:0,dy=fv*(e.key==='ArrowUp'?st:e.key==='ArrowDown'?-st:0);
   if(selP){const p=findP(selP);if(p){e.preventDefault();push2();VIEWS[cur].mv(p,dx*fl,dy);inval();drawAll();updPieceFields();autosave();}return;}
   const a=sel&&find(sel);
   if(a&&a.t!=='d'){e.preventDefault();a.u+=dx*fl;a.v+=dy;syncLabel(a);push2();drawAnn();updPos();autosave();}}});
@@ -418,7 +422,7 @@ function syncLabel(a){if(a.t==='s'&&a.auto)a.label='h '+Math.round(a.v);}
 let lastNudge=0;function push2(){const n=Date.now();if(n-lastNudge>800)push();lastNudge=n;}
 function del(){push();if(selP){const id=selP;S.pieces=S.pieces.filter(p=>p.id!==id);selP=null;inval();}else{const id=sel;ann[cur]=ann[cur].filter(a=>a.id!==id);sel=null;}drawAll();props();autosave();}
 const POS=()=>{const V=VIEWS[cur],f=V.fr,el=V.lab==='h',R=S.ref;
- const fx0=Math.min(U(cur,f[0]),U(cur,f[2])),fx1=Math.max(U(cur,f[0]),U(cur,f[2])),fl=cur==='C'&&S.flip;
+ const fx0=Math.min(U(cur,f[0]),U(cur,f[2])),fx1=Math.max(U(cur,f[0]),U(cur,f[2])),fl=MHf(cur);
  return {
   h:a=>{const du=U(cur,a.u);return Math.round(R.h==='L'?du-fx0:fx1-du);},
   sh:(a,x)=>{const du=R.h==='L'?fx0+x:fx1-x;a.u=fl?-du:du;},
@@ -509,6 +513,8 @@ $('tabs').ondblclick=e=>{const b=e.target.closest('button'),w=b&&wallByKey(b.dat
 $('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
 function go(v){cur=v;sel=null;selP=null;dim=null;tool=(tool==='sym'||tool==='pc')?'sel':tool;if(!vb[v])vb[v]=fitVB(v);buildTabs();tb();hint();setVB();drawAll();props();}
 function rebuild(){VIEWS=buildViews();inval();vb={};if(!VIEWS[cur])cur='D';go(cur);}
+const mirror=i=>{S.mir=S.mir||{};const m=S.mir[cur]||[0,0];m[i]=m[i]?0:1;S.mir[cur]=m;ec={};vb[cur]=fitVB(cur);setVB();drawAll();tb();autosave();};
+$('mh').onclick=()=>mirror(0);$('mvv').onclick=()=>mirror(1);
 $('flip').onchange=e=>{S.flip=e.target.checked;vb.C=fitVB('C');drawAll();setVB();autosave();};
 $('op').oninput=e=>{OP=e.target.value/100;drawAll();};
 $('undo').onclick=undo;$('fit').onclick=()=>{vb[cur]=fitVB(cur);setVB();};

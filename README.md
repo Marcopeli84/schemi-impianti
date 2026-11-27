@@ -14,3 +14,5 @@ Ogni parete ha la sua vista frontale raddrizzata; pianta, soffitto e pavimento m
 Con **Stanza…** si possono aggiungere, rinominare, nascondere o eliminare pareti (lato fisso oppure «obliqua» con due punti).
 I mobili ruotati letti dal DXF si spostano ma non si ridimensionano dai campi numerici.
 I file salvati con le versioni precedenti si aprono ancora.
+
+Ogni vista ha in alto i tasti **↔ Specchia** e **↕ Specchia** per rovesciarla da sinistra a destra o dall'alto in basso; simboli e quote seguono la vista e lo specchio viene salvato nel file.
