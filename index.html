@@ -88,7 +88,7 @@ g[data-id],g[data-pid]{cursor:pointer}
  <aside id="props"></aside>
 </main>
 <div id="ovl"><div class="box" id="box"></div></div>
-<div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Clicca le pareti che ti servono: diventano verdi. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato. Rotellina = zoom, trascina = sposta.</span><label class="ck"><input type="checkbox" id="pall"> Mostra altre possibili pareti</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Clicca le pareti che ti servono: diventano verdi. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato. Rotellina = zoom, trascina = sposta.</span><button id="padd" title="Clicca due punti sulla pianta per creare una parete a mano">＋ Parete</button><button id="pnone" title="Deseleziona tutte le pareti">Nessuna</button><label class="ck"><input type="checkbox" id="pall"> Mostra altre possibili pareti</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
 <div id="dz">Rilascia qui un file DXF o un lavoro salvato (.json)</div>
 <div id="print"></div>
 <script>
@@ -624,9 +624,12 @@ function importDone(f,m){
  const ext={xmin:Math.min(...pcs.map(p=>p[0])),xmax:Math.max(...pcs.map(p=>p[3])),ymin:Math.min(...pcs.map(p=>p[1])),ymax:Math.max(...pcs.map(p=>p[4]))};
  const zmax=pcs.reduce((a,p)=>Math.max(a,p[5]),0),H=Math.max(2700,Math.ceil(zmax/100)*100);
  const cand=candidati(pcs);
- let prop=cand.map((c,i)=>i).filter(i=>cand[i].off<=CLUS||cand[i].multi);if(!prop.length&&cand.length)prop=[0];
+ let prop=[];for(let i=0;i<cand.length;i++){const c=cand[i];if(!(c.off<=CLUS||c.multi))continue;
+  const dup=prop.some(j=>{const a=cand[j];if(a.d[0]*c.d[0]+a.d[1]*c.d[1]<.98||Math.abs(a.t-c.t)>700)return false;const ov=Math.min(a.umax,c.umax)-Math.max(a.umin,c.umin);return ov>.5*Math.min(a.umax-a.umin,c.umax-c.umin);});
+  if(!dup)prop.push(i);}
+ if(!prop.length&&cand.length)prop=[0];
  const w=ext.xmax-ext.xmin,h=ext.ymax-ext.ymin,mg=Math.max(w,h)*0.12+300;
- pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false};
+ pk={f,pcs,ext,H,cand,on:new Set(prop),rev:new Set(),prop:new Set(prop),all:false,u:Math.max(w,h)/40,vb:[ext.xmin-mg,-ext.ymax-mg,w+2*mg,h+2*mg],moved:false,add:0,p1:null,mouse:null};
  $('pall').checked=false;$('pkw').style.display=(Object.values(ann).some(a=>a.length)||S.pieces.length)?'flex':'none';$('pkeep').checked=false;
  $('pick').style.display='flex';pkDraw();}
 function pkOrder(){return [...pk.on].map(i=>({i,c:ecand(pk.cand[i],pk.rev.has(i))})).sort((a,b)=>chiave(a.c)-chiave(b.c)||pk.cand[a.i].umin-pk.cand[b.i].umin);}
@@ -635,7 +638,7 @@ function pkDraw(){
  for(const p of pk.pcs){const c=cornersA(p);s+=`<polygon points="${c.map(q=>X(q[0])+','+Y(q[1])).join(' ')}" fill="rgba(90,90,100,${p[2]>=1000?.07:.16})" stroke="#999" stroke-width=".7" vector-effect="non-scaling-stroke"/>`;}
  const names={};pkOrder().forEach((o,k)=>names[o.i]='Parete '+(k+1));
  pk.cand.forEach((c,i)=>{const on=pk.on.has(i),rev=pk.rev.has(i),[A,B]=cEnds(c,rev),ec=ecand(c,rev),mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2;
-  if(!on&&!pk.all&&!pk.prop.has(i))return;
+  if(!on&&!pk.all&&!pk.prop.has(i)&&!c.manual)return;
   const ln=`x1="${X(A[0])}" y1="${Y(A[1])}" x2="${X(B[0])}" y2="${Y(B[1])}"`;
   s+=`<line ${ln} stroke="transparent" stroke-width="28" vector-effect="non-scaling-stroke" data-i="${i}" style="cursor:pointer"/>`;
   s+=`<line ${ln} stroke="${on?'#1D9E75':'#d97706'}" stroke-width="${on?5:2}"${on?'':' stroke-dasharray="6 5" opacity=".55"'} vector-effect="non-scaling-stroke" pointer-events="none"/>`;
@@ -643,7 +646,9 @@ function pkDraw(){
    s+=`<polygon points="${X(tip[0])},${Y(tip[1])} ${X(l[0])},${Y(l[1])} ${X(r[0])},${Y(r[1])}" fill="#1D9E75" pointer-events="none"/>`;
    s+=`<text x="${X(lb[0])}" y="${Y(lb[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.7}" font-weight="600" fill="#0F6E56" pointer-events="none">${names[i]}</text>`;
    s+=`<g data-f="${i}" style="cursor:pointer"><circle cx="${X(hd[0])}" cy="${Y(hd[1])}" r="${u*1.3}" fill="#fff" stroke="#1D9E75" stroke-width="1.5" vector-effect="non-scaling-stroke"/><text x="${X(hd[0])}" y="${Y(hd[1])}" text-anchor="middle" dominant-baseline="central" font-size="${u*1.6}" fill="#0F6E56" pointer-events="none">⇄</text></g>`;}});
- sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
+ if(pk.add&&pk.p1){const a=pk.p1,b=pk.mouse||a;s+=`<line x1="${X(a[0])}" y1="${Y(a[1])}" x2="${X(b[0])}" y2="${Y(b[1])}" stroke="#1D9E75" stroke-width="3" stroke-dasharray="4 4" vector-effect="non-scaling-stroke" pointer-events="none"/><circle cx="${X(a[0])}" cy="${Y(a[1])}" r="${u*.7}" fill="#1D9E75" pointer-events="none"/>`;}
+ sv.style.cursor=pk.add?'crosshair':'';
+ sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));$('padd').classList.toggle('pri',!!pk.add);$('padd').textContent=pk.add?(pk.p1?'Clicca il 2° punto':'Clicca il 1° punto'):'＋ Parete';$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
 function pkClose(){$('pick').style.display='none';$('psvg').innerHTML='';pk=null;}
 function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.clientY;return q.matrixTransform(sv.getScreenCTM().inverse());}
 (()=>{const sv=$('psvg');let dr=null;
@@ -651,11 +656,21 @@ function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.cl
  sv.addEventListener('pointerdown',e=>{if(!pk||e.button>1)return;dr={x:e.clientX,y:e.clientY,b:pk.vb.slice()};pk.moved=false;sv.setPointerCapture(e.pointerId);});
  sv.addEventListener('pointermove',e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(Math.abs(dx)+Math.abs(dy)>5)pk.moved=true;if(!pk.moved)return;const k=sv.getScreenCTM().a;pk.vb=[dr.b[0]-dx/k,dr.b[1]-dy/k,dr.b[2],dr.b[3]];sv.setAttribute('viewBox',pk.vb.join(' '));});
  sv.addEventListener('pointerup',e=>{dr=null;});
+ const snap=(q,from)=>{let b=null,bd=pk.u*2.5;for(const p of pk.pcs)for(const c of cornersA(p)){const d=Math.hypot(c[0]-q.x,c[1]+q.y);if(d<bd){bd=d;b=[c[0],c[1]];}}
+  let r=b||[q.x,-q.y];if(!b&&from){const dx=r[0]-from[0],dy=r[1]-from[1],L=Math.hypot(dx,dy),a=Math.atan2(dy,dx)*180/Math.PI;if(L>1)for(const k of [0,90,180,-90,-180])if(Math.abs(a-k)<2.5){const rr=k*Math.PI/180;r=[from[0]+L*Math.cos(rr),from[1]+L*Math.sin(rr)];break;}}
+  return r;};
+ sv.addEventListener('pointermove',e=>{if(pk&&pk.add&&pk.p1){pk.mouse=snap(pkPt(e),pk.p1);pkDraw();}});
  sv.addEventListener('click',e=>{if(!pk||pk.moved){return;}
+  if(pk.add){const P=snap(pkPt(e),pk.p1);
+   if(!pk.p1){pk.p1=P;pkDraw();return;}
+   const A=pk.p1,B=P,L=Math.hypot(B[0]-A[0],B[1]-A[1]);if(L<100){return;}
+   const ex=(B[0]-A[0])/L,ey=(B[1]-A[1])/L,d=[-ey,ex],t=(A[0]*d[0]+A[1]*d[1]+B[0]*d[0]+B[1]*d[1])/2;
+   pk.cand.push({d,e:[ex,ey],t,umin:A[0]*ex+A[1]*ey,umax:B[0]*ex+B[1]*ey,cop:L,multi:false,off:0,manual:true});
+   pk.on.add(pk.cand.length-1);pk.add=0;pk.p1=null;pk.mouse=null;pkDraw();return;}
   const f=e.target.closest('[data-f]');if(f){const i=+f.dataset.f;pk.rev.has(i)?pk.rev.delete(i):pk.rev.add(i);pkDraw();return;}
   const g=e.target.closest('[data-i]');if(g){const i=+g.dataset.i;pk.on.has(i)?pk.on.delete(i):pk.on.add(i);pkDraw();}});
- $('pcan').onclick=pkClose;$('pall').onchange=e=>{if(pk){pk.all=e.target.checked;pkDraw();}};
- addEventListener('keydown',e=>{if(e.key==='Escape'&&pk)pkClose();});
+ $('pcan').onclick=pkClose;$('padd').onclick=()=>{if(!pk)return;pk.add=pk.add?0:1;pk.p1=null;pk.mouse=null;pkDraw();};$('pnone').onclick=()=>{if(pk){pk.on.clear();pkDraw();}};$('pall').onchange=e=>{if(pk){pk.all=e.target.checked;pkDraw();}};
+ addEventListener('keydown',e=>{if(e.key==='Escape'&&pk){if(pk.add){pk.add=0;pk.p1=null;pkDraw();}else pkClose();}});
  $('pok').onclick=()=>{if(!pk)return;if(!pk.on.size){alert('Clicca almeno una parete sulla pianta.');return;}
   const {f,pcs,ext,H,cand}=pk,keep=$('pkeep').checked;
   push();const old=S.ann,n=newState();
