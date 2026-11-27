@@ -58,9 +58,14 @@ g[data-id],g[data-pid]{cursor:pointer}
  body>*:not(#print){display:none!important}
  body{display:block;height:auto;background:#fff}
  #print{display:block}
- .page{page-break-after:always}
- .page h2{font:600 12pt system-ui;margin:0 0 4mm}
- .page svg{width:100%;height:170mm}
+ .page{page-break-after:always;height:189mm;display:flex;flex-direction:column;overflow:hidden}
+ .page:last-child{page-break-after:auto}
+ .pghead{min-height:14mm;margin-bottom:2mm}
+ .pghead .h1{font:600 12pt system-ui;margin:0 0 1mm}
+ .pghead .h2{font:9pt system-ui;color:#333}
+ .page svg{width:100%;flex:1;min-height:0}
+ .pgfoot{height:14mm;display:flex;justify-content:flex-end;align-items:flex-end;margin-top:1mm}
+ .pgfoot img{display:block}
  @page{size:A4 landscape;margin:8mm}
 }
 </style></head><body>
@@ -79,7 +84,7 @@ g[data-id],g[data-pid]{cursor:pointer}
  <button id="svgb">Scarica SVG</button>
  <button id="save">Salva</button>
  <button id="open">Apri</button><input type="file" id="file" accept=".json" hidden>
- <button id="prt">Stampa / PDF</button>
+ <button id="prs" title="Campi dell'intestazione, logo e nomi delle pareti">Intestazione stampa…</button><button id="prt">Stampa / PDF</button>
 </header>
 <main>
  <aside id="tools"></aside>
@@ -512,7 +517,7 @@ function buildTools(){let h='<h3>Strumenti</h3><button data-t="sel">☝ Simboli:
  $('tools').onclick=e=>{const b=e.target.closest('button');if(!b)return;tool=b.dataset.t;if(tool==='sym')sym=b.dataset.k;if(tool==='pc')pre=b.dataset.k;dim=null;if(tool!=='mob')selP=null;if(tool==='mob')sel=null;tb();hint();drawAll();props();};
  $('tools').ondragstart=e=>{const b=e.target.closest('button[data-k]');if(b)e.dataTransfer.setData('text/plain',b.dataset.t==='pc'?'pc:'+b.dataset.k:b.dataset.k);};
  $('snap').onchange=e=>{snapOn=e.target.checked;};tb();}
-function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}">${VIEWS[k].n}</button>`).join('');
+function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}${wallByKey(k)?' — doppio clic per rinominare':''}">${VIEWS[k].n}</button>`).join('');
  $('flipbox').style.display=cur==='C'?'flex':'none';}
 $('tabs').ondblclick=e=>{const b=e.target.closest('button'),w=b&&wallByKey(b.dataset.v);if(!w)return;const v=prompt('Nome della parete:',w.n);if(v&&v.trim()){push();w.n=v.trim();VIEWS[w.k].n=w.n;buildTabs();}};
 $('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
@@ -527,7 +532,51 @@ $('clr').onclick=()=>{if(!ann[cur].length||!confirm('Cancellare tutti i simboli 
 $('pn').oninput=e=>{S.nome=e.target.value;autosave();};
 function fullSVG(v,w){const b=fitVB(v);return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.join(' ')}"${w?` width="${w}"`:''}>${STYLE}<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" fill="#fff"/>${piecesSVG(v,false)}${annSVG(v,false)}</svg>`;}
 $('svgb').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([fullSVG(cur)],{type:'image/svg+xml'}));a.download=S.nome+' - '+VIEWS[cur].n+'.svg';a.click();};
-$('prt').onclick=()=>{let h='';for(const v in VIEWS){h+=`<div class="page"><h2>${esc(S.nome)} — ${VIEWS[v].n} (${VIEWS[v].s})</h2>${fullSVG(v)}</div>`;}$('print').innerHTML=h;setTimeout(()=>print(),50);};
+/* ---- intestazione e logo di stampa (impostazioni salvate nel browser per i lavori futuri) ---- */
+const PRT_KEY='schemi_impianti_stampa_v1';
+const PRT_DEF=()=>({f:[{id:'file',l:'File di origine',on:true,v:'',b:1},{id:'wall',l:'Nome parete',on:true,v:'',b:1},{id:'det',l:'Dettagli (tra parentesi)',on:true,v:'',b:1},
+ {id:'cli',l:'Cliente',on:false,v:''},{id:'ind',l:'Indirizzo',on:false,v:''},{id:'com',l:'Commessa',on:false,v:''},{id:'dat',l:'Data',on:false,v:''},{id:'dis',l:'Disegnatore',on:false,v:''},{id:'nota',l:'Note',on:false,v:''}],
+ logo:{on:true,h:10}});
+let PRT=(()=>{const d=PRT_DEF();try{const j=JSON.parse(localStorage.getItem(PRT_KEY)||'null');if(j&&Array.isArray(j.f)){for(const x of d.f){const y=j.f.find(z=>z.id===x.id);if(y){x.on=!!y.on;x.v=String(y.v||'');if(!x.b)x.l=y.l||x.l;}}
+  for(const y of j.f)if(String(y.id).startsWith('c_'))d.f.push({id:y.id,l:String(y.l||'Campo'),on:!!y.on,v:String(y.v||'')});
+  if(j.logo){d.logo.on=j.logo.on!==false;d.logo.h=Math.min(25,Math.max(6,+j.logo.h||10));}}}catch(x){}return d;})();
+function prtSave(){try{localStorage.setItem(PRT_KEY,JSON.stringify(PRT));}catch(x){}}
+const oggi=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
+function headParts(v){const g=id=>PRT.f.find(x=>x.id===id),on=id=>g(id)&&g(id).on;
+ const file=on('file')?(g('file').v.trim()||S.nome):'',wall=on('wall')?VIEWS[v].n:'',det=on('det')?(g('det').v.trim()||VIEWS[v].s):'';
+ let h1=[file,wall].filter(Boolean).join(' — ');if(det)h1+=(h1?' ':'')+'('+det+')';
+ const ex=PRT.f.filter(x=>!x.b&&x.on&&(x.v.trim()||x.id==='dat')).map(x=>[x.l,x.id==='dat'&&!x.v.trim()?oggi():x.v.trim()]);
+ return {h1,ex};}
+function headHTML(v){const {h1,ex}=headParts(v);return (h1?`<div class="h1">${esc(h1)}</div>`:'')+(ex.length?`<div class="h2">${ex.map(e=>`<b>${esc(e[0])}:</b> ${esc(e[1])}`).join(' &nbsp;·&nbsp; ')}</div>`:'');}
+function prtDlg(){
+ const rows=PRT.f.map((x,i)=>`<div class="pr" data-i="${i}"><input type="checkbox" class="po" ${x.on?'checked':''}>${x.b?`<span class="pl">${esc(x.l)}</span>`:`<input class="pll" value="${esc(x.l)}" spellcheck="false">`}`+
+  `<input class="pv" value="${esc(x.v)}" placeholder="${x.id==='file'?'(nome del progetto)':x.id==='wall'?'(nome della parete)':x.id==='det'?'(descrizione della vista)':x.id==='dat'?'(data di oggi)':''}" ${x.id==='wall'?'disabled':''} spellcheck="false">${x.b?'':`<button class="danger pd" title="Elimina il campo">✕</button>`}</div>`).join('');
+ const names=S.walls.map((w,i)=>`<div class="pr" data-w="${i}"><span class="pl">${esc(wallDesc(w))}</span><input class="pn2" value="${esc(w.n)}" spellcheck="false"></div>`).join('');
+ modal(`<h2>Intestazione e logo di stampa</h2><p style="color:#6b7280;font-size:12px;margin:0 0 8px">Spunta i campi da stampare in alto a sinistra e compilali. Le scelte restano salvate per i prossimi lavori.</p>
+ <style>.pr{display:flex;gap:8px;align-items:center;margin:4px 0}.pl{width:170px;font-size:13px}.pll{width:170px}.pv,.pn2{flex:1;min-width:0}#prv{background:#f3f4f6;border-radius:6px;padding:8px 10px;margin:10px 0;font-size:12px;min-height:34px}#prv .h1{font-weight:600;font-size:13px}</style>
+ ${rows}<div class="pr"><button id="pad">＋ Aggiungi campo</button></div>
+ <h3 style="margin:12px 0 4px;font-size:13px">Logo in basso a destra</h3>
+ <div class="pr"><input type="checkbox" id="plo" ${PRT.logo.on?'checked':''}><span class="pl">Stampa il logo</span><span style="font-size:12px">altezza</span><input id="plh" type="number" min="6" max="25" value="${PRT.logo.h}" style="width:60px"><span style="font-size:12px">mm</span></div>
+ <h3 style="margin:12px 0 4px;font-size:13px">Nomi delle pareti</h3>${names}
+ <h3 style="margin:12px 0 4px;font-size:13px">Anteprima intestazione</h3><div id="prv"></div>
+ <div class="acts"><button id="pcl">Chiudi</button><button id="ppr" class="pri">Stampa / PDF</button></div>`);
+ const prev=()=>{const v=Object.keys(VIEWS)[0];$('prv').innerHTML=headHTML(v)||'<i>(intestazione vuota)</i>';};
+ document.querySelectorAll('#box .pr[data-i]').forEach(r=>{const x=PRT.f[+r.dataset.i];
+  r.querySelector('.po').onchange=e=>{x.on=e.target.checked;prtSave();prev();};
+  r.querySelector('.pv').oninput=e=>{x.v=e.target.value;prtSave();prev();};
+  const l=r.querySelector('.pll');if(l)l.oninput=e=>{x.l=e.target.value;prtSave();prev();};
+  const d=r.querySelector('.pd');if(d)d.onclick=()=>{PRT.f.splice(+r.dataset.i,1);prtSave();prtDlg();};});
+ document.querySelectorAll('#box .pr[data-w]').forEach(r=>{const w=S.walls[+r.dataset.w];r.querySelector('.pn2').onchange=e=>{const t=e.target.value.trim();if(!t){e.target.value=w.n;return;}push();w.n=t;if(VIEWS[w.k])VIEWS[w.k].n=t;buildTabs();prev();autosave();};});
+ $('pad').onclick=()=>{PRT.f.push({id:'c_'+Date.now(),l:'Nuovo campo',on:true,v:''});prtSave();prtDlg();};
+ $('plo').onchange=e=>{PRT.logo.on=e.target.checked;prtSave();};
+ $('plh').oninput=e=>{PRT.logo.h=Math.min(25,Math.max(6,+e.target.value||10));prtSave();};
+ $('pcl').onclick=closeModal;$('ppr').onclick=()=>{closeModal();stampa();};prev();}
+async function stampa(){
+ let h='';for(const v in VIEWS)h+=`<div class="page"><div class="pghead">${headHTML(v)}</div>${fullSVG(v)}<div class="pgfoot">${PRT.logo.on?`<img src="logo.png" alt="" style="height:${PRT.logo.h}mm">`:''}</div></div>`;
+ $('print').innerHTML=h;
+ try{await Promise.all([...document.querySelectorAll('#print img')].map(i=>i.decode?i.decode().catch(()=>{}):0));}catch(x){}
+ setTimeout(()=>print(),50);}
+$('prt').onclick=stampa;$('prs').onclick=prtDlg;
 $('save').onclick=async()=>{const txt=stateText(),name=S.nome+' - impianti.json';
  try{if(window.showSaveFilePicker){const h=await showSaveFilePicker({suggestedName:name,types:[{description:'Lavoro impianti',accept:{'application/json':['.json']}}]});const w=await h.createWritable();await w.write(txt);await w.close();return;}}catch(e){if(e&&e.name==='AbortError')return;}
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download=name;a.click();};

@@ -18,3 +18,5 @@ I file salvati con le versioni precedenti si aprono ancora.
 Ogni vista ha in alto i tasti **↔ Specchia** e **↕ Specchia** per rovesciarla da sinistra a destra o dall'alto in basso; simboli e quote seguono la vista e lo specchio viene salvato nel file.
 
 Quando disegni una parete nella pianta dell'import, gli angoli dei mobili sono punti arancioni e il più vicino al cursore si evidenzia con un mirino verde: il clic si aggancia a quel punto.
+
+**Stampa / PDF:** il pulsante «Intestazione stampa…» apre le impostazioni a parte: campi da spuntare e compilare in alto a sinistra (file di origine, nome parete, dettagli tra parentesi, cliente, indirizzo, commessa, data, disegnatore, note e campi propri), logo in basso a destra (`logo.png`, altezza regolabile) e nomi delle pareti. Le scelte restano salvate nel browser per i lavori successivi. Le pareti si rinominano anche con doppio clic sulla scheda.
