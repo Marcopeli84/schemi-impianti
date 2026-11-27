@@ -16,3 +16,5 @@ I mobili ruotati letti dal DXF si spostano ma non si ridimensionano dai campi nu
 I file salvati con le versioni precedenti si aprono ancora.
 
 Ogni vista ha in alto i tasti **↔ Specchia** e **↕ Specchia** per rovesciarla da sinistra a destra o dall'alto in basso; simboli e quote seguono la vista e lo specchio viene salvato nel file.
+
+Nelle viste parete i **frontali** (ante, cassetti: pannelli sottili paralleli alla parete e non coperti da altro) sono in primo piano; le strutture dietro un frontale restano appena accennate. Dove non c'è il frontale (vano a giorno) si vede la struttura con il suo **ingombro tratteggiato**.
