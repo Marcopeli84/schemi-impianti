@@ -3,8 +3,14 @@
 App web: stanza vuota, mobili disegnabili, import DXF di Metron, simboli e quote. Tutto gira nel browser.
 
 ## Pareti
-Il numero di pareti non ha limite. Con **Importa DXF** l'app cerca le pareti dai mobili: per ogni lato della pianta
-raggruppa i mobili con la schiena alla stessa distanza, quindi una rientranza dà una parete in più. Le pareti trovate
-si spuntano nella finestra di import. Con **Stanza…** si possono aggiungere, rinominare, nascondere o eliminare pareti
-(lato, posizione, da/a in mm). Sono supportate pareti parallele agli assi della pianta; le pareti oblique no.
-I file salvati con la versione a 4 pareti fisse si aprono ancora.
+Il numero di pareti non ha limite e le pareti possono avere qualsiasi angolo. Ogni parete è un segmento tra due punti
+della pianta, scritto da sinistra a destra guardandolo da dentro la stanza.
+
+Con **Importa DXF** l'app legge per ogni mobile il rettangolo orientato in pianta (angolo compreso), poi raggruppa i lati
+dei mobili che guardano nella stessa direzione e stanno alla stessa distanza: ogni gruppo abbastanza lungo è una parete
+(una rientranza o un angolo obliquo ne aggiungono una). Le pareti trovate si spuntano nella finestra di import.
+Ogni parete ha la sua vista frontale raddrizzata; pianta, soffitto e pavimento mostrano i mobili ruotati e le pareti in verde.
+
+Con **Stanza…** si possono aggiungere, rinominare, nascondere o eliminare pareti (lato fisso oppure «obliqua» con due punti).
+I mobili ruotati letti dal DXF si spostano ma non si ridimensionano dai campi numerici.
+I file salvati con le versioni precedenti si aprono ancora.
