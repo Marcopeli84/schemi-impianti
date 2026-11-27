@@ -154,13 +154,30 @@ function workerMain(){
 }
 
 /* ====================== stato ====================== */
-const BAND=800,MIN_PARETE=900,KEY='schemi-impianti-v2';
-const POSN={ymax:'in alto nella pianta',xmax:'a destra nella pianta',ymin:'in basso nella pianta',xmin:'a sinistra nella pianta'};
+const BAND=800,MIN_PARETE=900,TOLW=150,CLUS=100,MAXCAND=20,KEY='schemi-impianti-v2';
+/* Le pareti sono una lista senza limite di numero. Ogni parete guarda verso uno dei 4 lati della pianta
+   (side) e sta a una certa coordinata (pos), tra a e b. Le 4 pareti della stanza rettangolare iniziale
+   sono "auto": seguono le misure della stanza. */
+const SIDES=['ymax','xmax','ymin','xmin'];
+const SIDEN={ymax:'lato alto della pianta',xmax:'lato destro della pianta',ymin:'lato basso della pianta',xmin:'lato sinistro della pianta'};
 const DEFN={ymax:'Parete 1',xmax:'Parete 2',ymin:'Parete 3',xmin:'Parete 4'};
-const NM=new Proxy({},{get:(_,k)=>(S.names&&S.names[k])||DEFN[k]});
-const WALLS=['ymax','xmax','ymin','xmin'];
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+function defWalls(){return SIDES.map(s=>({k:s,n:DEFN[s],side:s,auto:true,show:true}));}
+function wallGeom(w,R){R=R||S.room;
+ if(w.auto)return w.side==='ymax'?{pos:R.y1,a:R.x0,b:R.x1}:w.side==='ymin'?{pos:R.y0,a:R.x0,b:R.x1}:w.side==='xmax'?{pos:R.x1,a:R.y0,b:R.y1}:{pos:R.x0,a:R.y0,b:R.y1};
+ return {pos:w.pos,a:w.a,b:w.b};}
+function wallByKey(k){return S.walls.find(w=>w.k===k);}
+function freeKey(side,list,an){if(!list.some(w=>w.k===side))return side;let i=1;while(list.some(w=>w.k==='w'+i)||(an&&an['w'+i]))i++;return 'w'+i;}
+function freeName(list){let i=1;while(list.some(w=>w.n==='Parete '+i))i++;return 'Parete '+i;}
+function migrateWalls(d){
+ return SIDES.map(s=>{const w={k:s,n:(d.names&&d.names[s])||DEFN[s],side:s,auto:true,show:!(d.show&&d.show[s]===false)};
+  const r=d.wr&&d.wr[s];
+  if(r&&d.room){const R=d.room;w.auto=false;
+   if(s==='ymax'){w.pos=R.y1;w.a=r[0];w.b=r[1];}else if(s==='xmin'){w.pos=R.x0;w.a=r[0];w.b=r[1];}
+   else if(s==='ymin'){w.pos=R.y0;w.a=-r[1];w.b=-r[0];}else{w.pos=R.x1;w.a=-r[1];w.b=-r[0];}}
+  return w;});}
 const $=id=>document.getElementById(id),svg=$('svg');
-function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},show:{ymax:true,xmax:true,ymin:true,xmin:true},names:{},wr:{},pieces:[],
+function newState(){return {v:2,nome:'Nuovo progetto',room:{x0:0,y0:0,x1:4000,y1:3000,h:2700},walls:defWalls(),pieces:[],
  ann:{ymax:[],xmax:[],ymin:[],xmin:[],C:[],D:[]},flip:false,ref:{h:'L',v:'p'},nid:1,pid:1};}
 let S=newState(),ann=S.ann,VIEWS={},cur='D',tool='sel',sym='P',pre='B',snapOn=true,sel=null,selP=null,hist=[],vb={},dim=null,mouse=null,drag=null,OP=.7;
 const SYM={
@@ -172,15 +189,17 @@ const PRE={B:{n:'Base',w:600,d:600,h:870,z:0},PE:{n:'Pensile',w:600,d:350,h:720,
 const STYLE='<style>.ps{fill:rgba(60,95,160,.06);stroke:rgba(40,70,130,.35);stroke-width:.6;vector-effect:non-scaling-stroke}.pm{fill:rgba(200,120,40,.07);stroke:rgba(190,110,30,.4);stroke-width:.6;vector-effect:non-scaling-stroke}.pu{fill:rgba(40,150,90,.09);stroke:rgba(30,130,80,.55);stroke-width:.8;vector-effect:non-scaling-stroke}.sl{fill:rgba(31,111,235,.14)!important;stroke:#1f6feb!important;stroke-width:1.6!important}.fr{fill:none;stroke:#222;stroke-width:1.5;vector-effect:non-scaling-stroke}.fl{stroke:#222;stroke-width:2;vector-effect:non-scaling-stroke}text{font-family:system-ui,Segoe UI,sans-serif}</style>';
 
 /* ====================== viste ====================== */
+/* geometria di una parete: quali mobili vede (f), come si disegnano (r), come si spostano (mv), come se ne crea uno nuovo (mk) */
+function sideDef(w,g){const o=w.auto,T=o?1e9:TOLW,A=g.a,B=g.b,P=g.pos;
+ if(w.side==='ymax')return {d:[A,B],f:p=>p.y1>P-BAND&&p.y1<=P+T&&(o||(p.x1>A&&p.x0<B)),r:p=>[p.x0,p.z0,p.x1,p.z1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:u0,x1:u1,y0:P-d,y1:P,z0,z1})};
+ if(w.side==='xmax')return {d:[-B,-A],f:p=>p.x1>P-BAND&&p.x1<=P+T&&(o||(p.y1>A&&p.y0<B)),r:p=>[-p.y1,p.z0,-p.y0,p.z1],mv:(p,a,b)=>{p.y0-=a;p.y1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:-u1,y1:-u0,x0:P-d,x1:P,z0,z1})};
+ if(w.side==='ymin')return {d:[-B,-A],f:p=>p.y0<P+BAND&&p.y0>=P-T&&(o||(p.x1>A&&p.x0<B)),r:p=>[-p.x1,p.z0,-p.x0,p.z1],mv:(p,a,b)=>{p.x0-=a;p.x1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:-u1,x1:-u0,y0:P,y1:P+d,z0,z1})};
+ return {d:[A,B],f:p=>p.x0<P+BAND&&p.x0>=P-T&&(o||(p.y1>A&&p.y0<B)),r:p=>[p.y0,p.z0,p.y1,p.z1],mv:(p,a,b)=>{p.y0+=a;p.y1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:u0,y1:u1,x0:P,x1:P+d,z0,z1})};}
 function buildViews(){
  const R=S.room,H=R.h,o={};
- const D={
-  ymax:{d:[R.x0,R.x1],f:p=>p.y1>R.y1-BAND,r:p=>[p.x0,p.z0,p.x1,p.z1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:u0,x1:u1,y0:R.y1-d,y1:R.y1,z0,z1})},
-  xmax:{d:[-R.y1,-R.y0],f:p=>p.x1>R.x1-BAND,r:p=>[-p.y1,p.z0,-p.y0,p.z1],mv:(p,a,b)=>{p.y0-=a;p.y1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:-u1,y1:-u0,x0:R.x1-d,x1:R.x1,z0,z1})},
-  ymin:{d:[-R.x1,-R.x0],f:p=>p.y0<R.y0+BAND,r:p=>[-p.x1,p.z0,-p.x0,p.z1],mv:(p,a,b)=>{p.x0-=a;p.x1-=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({x0:-u1,x1:-u0,y0:R.y0,y1:R.y0+d,z0,z1})},
-  xmin:{d:[R.y0,R.y1],f:p=>p.x0<R.x0+BAND,r:p=>[p.y0,p.z0,p.y1,p.z1],mv:(p,a,b)=>{p.y0+=a;p.y1+=a;p.z0+=b;p.z1+=b;},mk:(u0,u1,z0,z1,d)=>({y0:u0,y1:u1,x0:R.x0,x1:R.x0+d,z0,z1})}};
- for(const k of WALLS)if(S.show[k]){const d=S.wr[k]||D[k].d;
-  o[k]={n:NM[k],s:'vista frontale della parete '+POSN[k],lab:'h',f:D[k].f,r:D[k].r,mv:D[k].mv,mk:D[k].mk,fr:[d[0],0,d[1],H]};}
+ for(const w of S.walls){if(!S.ann[w.k])S.ann[w.k]=[];if(!w.show)continue;
+  const D=sideDef(w,wallGeom(w));
+  o[w.k]={n:w.n,s:'vista frontale della parete: '+SIDEN[w.side],lab:'h',f:D.f,r:D.r,mv:D.mv,mk:D.mk,fr:[D.d[0],0,D.d[1],H]};}
  const plan={lab:'y',f:()=>true,r:p=>[p.x0,p.y0,p.x1,p.y1],mv:(p,a,b)=>{p.x0+=a;p.x1+=a;p.y0+=b;p.y1+=b;},fr:[R.x0,R.y0,R.x1,R.y1],
   mkp:(u,v,w,d,z0,h)=>({x0:u-w/2,x1:u+w/2,y0:v-d/2,y1:v+d/2,z0,z1:z0+h})};
  o.C={n:'Soffitto',s:'vista dal basso (planimetria soffitto)',...plan};
@@ -259,14 +278,16 @@ function drawOv(){let s='';
 function dimDraft(){if(!dim||!dim.p2||!mouse)return null;return dim.ax==='h'?{ax:'h',a:dim.p1[0],b:dim.p2[0],p1:dim.p1[1],p2:dim.p2[1],off:mouse[1]}:{ax:'v',a:dim.p1[1],b:dim.p2[1],p1:dim.p1[0],p2:dim.p2[0],off:mouse[0]};}
 
 /* ====================== storia, salvataggio automatico ====================== */
-function snapJ(){return JSON.stringify({room:S.room,show:S.show,names:S.names,wr:S.wr,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
+function snapJ(){return JSON.stringify({room:S.room,walls:S.walls,pieces:S.pieces,ann:S.ann,nid:S.nid,pid:S.pid,nome:S.nome});}
 function push(){hist.push(snapJ());if(hist.length>60)hist.shift();}
 function undo(){if(!hist.length)return;Object.assign(S,JSON.parse(hist.pop()));ann=S.ann;sel=selP=null;$('pn').value=S.nome;rebuild();autosave();}
-function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,show:S.show,names:S.names,wr:S.wr,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
+function stateText(){return JSON.stringify({app:'schemi-impianti',v:2,nome:S.nome,room:S.room,walls:S.walls,pieces:S.pieces,ann:S.ann,flip:S.flip,ref:S.ref,nid:S.nid,pid:S.pid,ts:Date.now()});}
 function autosave(){}
 function loadState(d){
  if(!d||d.v!==2||!Array.isArray(d.pieces)||!d.room||!d.ann)throw new Error('formato');
- const n=newState();S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,show:Object.assign(n.show,d.show||{}),names:d.names||{},wr:d.wr||{},pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
+ const n=newState();
+ const walls=(Array.isArray(d.walls)&&d.walls.length)?d.walls.map(w=>Object.assign({},w,{show:w.show!==false})):migrateWalls(d);
+ S=Object.assign(n,{nome:d.nome||'Progetto',room:d.room,walls,pieces:d.pieces,ann:Object.assign(n.ann,d.ann),flip:!!d.flip,ref:d.ref||n.ref});
  for(const v in S.ann)for(const a of S.ann[v]){if(a.t==='s'){const s=SYM[a.k];if(s&&!a.shape){a.shape=s[3];a.w=s[4];a.h=s[5];a.code=s[1];a.color=s[2];}}if(a.t==='d')for(const k of ['r1','r2'])if(typeof a[k]==='number')a[k]={id:a[k],k:'c'};}
  S.nid=Math.max(d.nid||1,1+Math.max(0,...Object.values(S.ann).flat().map(a=>a.id)));
  S.pid=Math.max(d.pid||1,1+Math.max(0,...S.pieces.map(p=>p.id||0)));
@@ -430,7 +451,7 @@ function buildTools(){let h='<h3>Strumenti</h3><button data-t="sel">☝ Simboli:
  $('snap').onchange=e=>{snapOn=e.target.checked;};tb();}
 function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}">${VIEWS[k].n}</button>`).join('');
  $('flipbox').style.display=cur==='C'?'flex':'none';}
-$('tabs').ondblclick=e=>{const b=e.target.closest('button');if(!b||!WALLS.includes(b.dataset.v))return;const k=b.dataset.v,v=prompt('Nome della parete:',NM[k]);if(v&&v.trim()){push();S.names[k]=v.trim();VIEWS[k].n=S.names[k];buildTabs();}};
+$('tabs').ondblclick=e=>{const b=e.target.closest('button'),w=b&&wallByKey(b.dataset.v);if(!w)return;const v=prompt('Nome della parete:',w.n);if(v&&v.trim()){push();w.n=v.trim();VIEWS[w.k].n=w.n;buildTabs();}};
 $('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
 function go(v){cur=v;sel=null;selP=null;dim=null;tool=(tool==='sym'||tool==='pc')?'sel':tool;if(!vb[v])vb[v]=fitVB(v);buildTabs();tb();hint();setVB();drawAll();props();}
 function rebuild(){VIEWS=buildViews();inval();vb={};if(!VIEWS[cur])cur='D';go(cur);}
@@ -455,19 +476,34 @@ function closeModal(){$('ovl').style.display='none';$('box').innerHTML='';}
 $('bnew').onclick=()=>{
  if((S.pieces.length||Object.values(ann).some(a=>a.length))&&!confirm('Iniziare un nuovo progetto con stanza vuota? Quello attuale si può recuperare con Annulla (Ctrl+Z) finché non chiudi la pagina; se non l\'hai salvato, salvalo prima.'))return;
  push();const n=newState();n.nid=S.nid;n.pid=S.pid;S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;rebuild();autosave();roomDlg();};
-function roomDlg(){const R=S.room;
- modal(`<h2>Stanza</h2><div class="f"><div><small>Larghezza (mm, parete in alto)</small><input type="number" id="rw" step="10" value="${R.x1-R.x0}"></div><div><small>Profondità (mm)</small><input type="number" id="rd" step="10" value="${R.y1-R.y0}"></div><div><small>Altezza (mm)</small><input type="number" id="rhh" step="10" value="${R.h}"></div></div>
- <p><small>Pareti da mostrare (spunta) e nome (puoi cambiarlo: compare anche nella stampa)</small>${WALLS.map(k=>`<div class="f" style="align-items:center;margin:4px 0"><label class="ck" style="margin:0;flex:none"><input type="checkbox" data-w="${k}"${S.show[k]?' checked':''}></label><input type="text" data-n="${k}" value="${esc(NM[k])}" style="flex:1"><small style="margin:0;flex:none;width:120px">${POSN[k]}</small></div>`).join('')}</p>
- <p><small>Il soffitto (visto dal basso) e il pavimento (visto dall'alto) ci sono sempre. La posizione a destra dice dove sta la parete nella pianta vista dall'alto.</small></p>
+/* finestra Stanza: lavora su una copia (P) delle pareti; si applica solo con «Applica» */
+function roomDlg(P){const R=S.room;
+ P=P||{w:R.x1-R.x0,d:R.y1-R.y0,h:R.h,walls:JSON.parse(JSON.stringify(S.walls)),ns:'ymax'};
+ const rows=P.walls.map((w,i)=>{const g=wallGeom(w);
+  return `<div class="f" style="align-items:center;margin:4px 0"><label class="ck" style="margin:0;flex:none"><input type="checkbox" data-w="${i}"${w.show?' checked':''}></label><input type="text" data-n="${i}" value="${esc(w.n)}" style="flex:1"><small style="margin:0;flex:none;width:118px">${esc(SIDEN[w.side])}</small>${w.auto?'':`<button data-x="${i}" class="danger" title="Elimina la parete">✕</button>`}</div>`+
+  (w.auto?'':`<div class="f" style="margin:0 0 8px 26px"><div><small>Posizione (mm)</small><input type="number" data-g="${i}" data-f="pos" step="10" value="${Math.round(g.pos)}"></div><div><small>Da (mm)</small><input type="number" data-g="${i}" data-f="a" step="10" value="${Math.round(g.a)}"></div><div><small>A (mm)</small><input type="number" data-g="${i}" data-f="b" step="10" value="${Math.round(g.b)}"></div></div>`);}).join('');
+ modal(`<h2>Stanza</h2><div class="f"><div><small>Larghezza (mm)</small><input type="number" id="rw" step="10" value="${P.w}"></div><div><small>Profondità (mm)</small><input type="number" id="rd" step="10" value="${P.d}"></div><div><small>Altezza (mm)</small><input type="number" id="rhh" step="10" value="${P.h}"></div></div>
+ <p><small>Pareti: spunta quelle da mostrare e scrivi il nome (compare anche nella stampa). Non c'è un limite di numero.</small>${rows}</p>
+ <p><small>Aggiungi una parete (per stanze con rientranze). Il lato dice dove guarda la parete nella pianta vista dall'alto; posizione, da e a sono le coordinate della pianta (la stanza va da x ${Math.round(R.x0)} a ${Math.round(R.x1)} e da y ${Math.round(R.y0)} a ${Math.round(R.y1)}).</small></p>
+ <div class="f" style="align-items:center"><select id="nside" style="flex:1;padding:6px;font:inherit;border:1px solid #c5cad3;border-radius:5px">${SIDES.map(s=>`<option value="${s}"${P.ns===s?' selected':''}>${esc(cap(SIDEN[s]))}</option>`).join('')}</select><button id="nadd">+ Aggiungi parete</button></div>
+ <p><small>Il soffitto (visto dal basso) e il pavimento (visto dall'alto) ci sono sempre.</small></p>
  <div class="acts"><button id="rc">Annulla</button><button id="rok" class="pri">Applica</button></div>`);
+ const grab=()=>{P.w=+$('rw').value||0;P.d=+$('rd').value||0;P.h=+$('rhh').value||0;P.ns=$('nside').value;
+  document.querySelectorAll('[data-w]').forEach(c=>{P.walls[+c.dataset.w].show=c.checked;});
+  document.querySelectorAll('[data-n]').forEach(c=>{P.walls[+c.dataset.n].n=c.value.trim()||P.walls[+c.dataset.n].n;});
+  document.querySelectorAll('[data-g]').forEach(c=>{const v=parseFloat(c.value);if(isFinite(v))P.walls[+c.dataset.g][c.dataset.f]=v;});};
  $('rc').onclick=closeModal;
- $('rok').onclick=()=>{const w=Math.max(500,+$('rw').value||0),d=Math.max(500,+$('rd').value||0),h=Math.max(1000,+$('rhh').value||0);
-  push();const ch=(w!==R.x1-R.x0)||(d!==R.y1-R.y0);
-  S.room={x0:R.x0,y0:R.y0,x1:R.x0+w,y1:R.y0+d,h};if(ch)S.wr={};
-  document.querySelectorAll('[data-w]').forEach(c=>{S.show[c.dataset.w]=c.checked;});
-  document.querySelectorAll('[data-n]').forEach(c=>{S.names[c.dataset.n]=c.value.trim()||DEFN[c.dataset.n];});
+ $('nadd').onclick=()=>{grab();const side=P.ns,g=wallGeom({auto:true,side},{x0:R.x0,y0:R.y0,x1:R.x0+Math.max(500,P.w),y1:R.y0+Math.max(500,P.d)});
+  P.walls.push({k:freeKey(side,P.walls,S.ann),n:freeName(P.walls),side,auto:false,show:true,pos:g.pos,a:g.a,b:g.b});roomDlg(P);};
+ document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{grab();P.walls.splice(+b.dataset.x,1);roomDlg(P);});
+ $('rok').onclick=()=>{grab();const w=Math.max(500,P.w),d=Math.max(500,P.d),h=Math.max(1000,P.h);
+  push();
+  S.room={x0:R.x0,y0:R.y0,x1:R.x0+w,y1:R.y0+d,h};
+  const tenute=new Set(P.walls.map(x=>x.k));for(const o of S.walls)if(!tenute.has(o.k))delete S.ann[o.k];
+  for(const x of P.walls){if(!x.auto&&x.a>x.b){const t=x.a;x.a=x.b;x.b=t;}}
+  S.walls=P.walls;
   closeModal();rebuild();autosave();};}
-$('broom').onclick=roomDlg;
+$('broom').onclick=()=>roomDlg();
 
 /* ====================== importazione DXF ====================== */
 let worker=null;
@@ -485,37 +521,55 @@ function importDxf(f){
   else if(m.type==='done'){w.terminate();worker=null;importDone(f,m);}};
  w.onerror=ev=>{w.terminate();worker=null;closeModal();alert('Errore nella lettura del DXF.');};
  w.postMessage(f);}
-function fascia(pcs,lato,ext){let sel,uv;
- if(lato==='ymax'){sel=pcs.filter(p=>p[4]>ext.ymax-BAND);uv=p=>[p[0],p[3]];}
- else if(lato==='ymin'){sel=pcs.filter(p=>p[1]<ext.ymin+BAND);uv=p=>[-p[3],-p[0]];}
- else if(lato==='xmax'){sel=pcs.filter(p=>p[3]>ext.xmax-BAND);uv=p=>[-p[4],-p[1]];}
- else{sel=pcs.filter(p=>p[0]<ext.xmin+BAND);uv=p=>[p[1],p[4]];}
- const iv=sel.map(uv).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);let cop=0,fine=null,umin=null,umax=null;
- for(const [a,b] of iv){umin=umin===null?a:Math.min(umin,a);umax=umax===null?b:Math.max(umax,b);
-  if(fine===null||a>fine){cop+=b-a;fine=b;}else if(b>fine){cop+=b-fine;fine=b;}}
- return {cop,umin,umax};}
+/* pareti candidate: per ognuno dei 4 lati raggruppo i mobili che hanno la faccia posteriore alla stessa distanza (entro CLUS mm);
+   ogni gruppo abbastanza lungo è una parete. «multi» = c'è un pensile sopra una base con profondità diversa (segno di una vera parete, non di un fronte). Così una rientranza dà una parete in più, senza limiti di numero. */
+function candidati(pcs,ext){
+ const all=[];
+ for(const side of SIDES){
+  const mx=side==='ymax'||side==='xmax',orizz=side==='ymax'||side==='ymin';
+  const face=side==='ymax'?p=>p[4]:side==='ymin'?p=>p[1]:side==='xmax'?p=>p[3]:p=>p[0];
+  const uv=orizz?p=>[p[0],p[3]]:p=>[p[1],p[4]],dep=orizz?p=>p[4]-p[1]:p=>p[3]-p[0];
+  const eb=side==='ymax'?ext.ymax:side==='ymin'?ext.ymin:side==='xmax'?ext.xmax:ext.xmin;
+  const ord=pcs.slice().sort((p,q)=>mx?face(q)-face(p):face(p)-face(q));
+  for(let i=0;i<ord.length;){
+   const f0=face(ord[i]),g=[];let j=i;
+   while(j<ord.length&&Math.abs(face(ord[j])-f0)<=CLUS){g.push(ord[j]);j++;}
+   i=j;
+   const iv=g.map(uv).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);let cop=0,fine=null,umin=null,umax=null;
+   for(const [a,b] of iv){umin=umin===null?a:Math.min(umin,a);umax=umax===null?b:Math.max(umax,b);
+    if(fine===null||a>fine){cop+=b-a;fine=b;}else if(b>fine){cop+=b-fine;fine=b;}}
+   if(cop<=0)continue;
+   const bassi=g.filter(p=>p[2]<300),alti=g.filter(p=>p[2]>=1000);let multi=false;
+   for(const p of bassi){const u=uv(p);for(const q of alti){const w=uv(q);if(Math.min(u[1],w[1])-Math.max(u[0],w[0])>100&&Math.abs(dep(p)-dep(q))>=50){multi=true;break;}}if(multi)break;}
+   all.push({side,pos:f0,off:Math.abs(f0-eb),cop,umin,umax,multi});}}
+ let list=all.filter(c=>c.cop>=MIN_PARETE);
+ if(!list.length&&all.length)list=[all.slice().sort((a,b)=>b.cop-a.cop)[0]];
+ return list.sort((a,b)=>b.cop-a.cop).slice(0,MAXCAND);}
 function importDone(f,m){
  const pcs=m.pieces;
  if(!pcs.length){modal(`<h2>Nessun elemento trovato</h2><p>Nel DXF non ci sono solidi o mesh leggibili. Controlla che sia l'esportazione 3D del progetto Metron.</p><div class="acts"><button id="ok" class="pri">Chiudi</button></div>`);$('ok').onclick=closeModal;return;}
  const ext={xmin:Math.min(...pcs.map(p=>p[0])),xmax:Math.max(...pcs.map(p=>p[3])),ymin:Math.min(...pcs.map(p=>p[1])),ymax:Math.max(...pcs.map(p=>p[4]))};
  const zmax=pcs.reduce((a,p)=>Math.max(a,p[5]),0),H=Math.max(2700,Math.ceil(zmax/100)*100);
- const cand=WALLS.map(k=>({k,...fascia(pcs,k,ext)})).filter(c=>c.cop>0).sort((a,b)=>b.cop-a.cop);
- let prop=cand.filter(c=>c.cop>=MIN_PARETE);if(!prop.length)prop=cand.slice(0,1);
+ const cand=candidati(pcs,ext);
+ let prop=cand.filter(c=>c.off<=BAND||c.multi);if(!prop.length)prop=cand.slice(0,1);
  const have=Object.values(ann).some(a=>a.length)||S.pieces.length;
  const sk=Object.entries(m.skipped).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>k+' ('+v+')').join(', ');
  modal(`<h2>DXF letto</h2><p><b>${pcs.length}</b> elementi (${m.cnt.S} solidi, ${m.cnt.P} mesh). Ingombro <b>${ext.xmax-ext.xmin} × ${ext.ymax-ext.ymin} mm</b>, altezza massima ${Math.round(zmax)} mm.${sk?`<br><small>Tipi ignorati: ${esc(sk)}</small>`:''}</p>
- <p><small>Pareti con mobili (proposte già spuntate)</small>${cand.map(c=>`<label class="ck"><input type="checkbox" data-w="${c.k}"${prop.includes(c)?' checked':''}> Parete ${POSN[c.k]} — mobili per ${Math.round(c.cop)} mm</label>`).join('')}</p>
+ <p><small>Pareti trovate: spunta quelle che servono (le proposte sono già spuntate). Le altre restano nascoste e le riattivi da «Stanza…».</small>${cand.map((c,i)=>`<label class="ck"><input type="checkbox" data-w="${i}"${prop.includes(c)?' checked':''}> ${esc(cap(SIDEN[c.side]))}, mobili per ${Math.round(c.cop)} mm${c.off>1?` (rientrata di ${Math.round(c.off)} mm)`:''}</label>`).join('')}</p>
  ${have?`<label class="ck"><input type="checkbox" id="keep"> Tieni i simboli e le quote già disegnati</label><p><small>Sostituisco stanza e mobili con quelli del DXF. Se non spunti, anche simboli e quote ripartono da zero. Con Annulla torni al progetto di prima.</small></p>`:''}
  <div class="acts"><button id="ic">Annulla</button><button id="iok" class="pri">Importa</button></div>`);
  $('ic').onclick=closeModal;
- $('iok').onclick=()=>{const chosen=[...document.querySelectorAll('[data-w]')].filter(c=>c.checked).map(c=>c.dataset.w),keep=$('keep')&&$('keep').checked;
+ $('iok').onclick=()=>{const on=new Set([...document.querySelectorAll('[data-w]')].filter(c=>c.checked).map(c=>+c.dataset.w)),keep=$('keep')&&$('keep').checked;
   push();const old=S.ann,n=newState();
   n.nome=f.name.replace(/\.dxf$/i,'');n.room={x0:ext.xmin,y0:ext.ymin,x1:ext.xmax,y1:ext.ymax,h:H};
-  n.show={ymax:false,xmax:false,ymin:false,xmin:false};for(const k of chosen)n.show[k]=true;
-  for(const c of cand)if(n.show[c.k])n.wr[c.k]=[Math.floor(c.umin),Math.ceil(c.umax)];
-  {let i=1;for(const k of [...WALLS.filter(k=>chosen.includes(k)),...WALLS.filter(k=>!chosen.includes(k))])n.names[k]='Parete '+i++;}
+  const ordina=(p,q)=>SIDES.indexOf(p.side)-SIDES.indexOf(q.side)||p.umin-q.umin;
+  const scelte=cand.filter((c,i)=>on.has(i)).sort(ordina),altre=cand.filter((c,i)=>!on.has(i)).sort(ordina);
+  n.walls=[];n.ann={C:[],D:[]};
+  for(const [c,show] of [...scelte.map(c=>[c,true]),...altre.map(c=>[c,false])]){
+   const k=freeKey(c.side,n.walls,null);
+   n.walls.push({k,n:freeName(n.walls),side:c.side,auto:false,show,pos:c.pos,a:Math.floor(c.umin),b:Math.ceil(c.umax)});n.ann[k]=[];}
   n.pid=1;n.pieces=pcs.map(p=>({id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]}));
-  n.nid=S.nid;if(keep){for(const k in old)n.ann[k]=old[k];}
+  n.nid=S.nid;if(keep){for(const k in old)if(n.ann[k])n.ann[k]=old[k];}
   S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';closeModal();cur='D';rebuild();autosave();};}
 addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))$('dz').style.display='flex';});
 addEventListener('dragleave',e=>{if(!e.relatedTarget)$('dz').style.display='none';});
@@ -525,6 +579,6 @@ addEventListener('drop',e=>{$('dz').style.display='none';const f=e.dataTransfer&
 
 /* ====================== avvio ====================== */
 {$('pn').value=S.nome;$('flip').checked=S.flip;}
-buildTools();VIEWS=buildViews();cur=VIEWS.D?'D':Object.keys(VIEWS)[0];cur=VIEWS.ymax?'ymax':cur;go(cur);
+buildTools();VIEWS=buildViews();cur=Object.keys(VIEWS)[0];go(cur);
 window.__t={get S(){return S;},get cur(){return cur;},get ann(){return ann;},importDxf,workerMain};
 </script></body></html>
