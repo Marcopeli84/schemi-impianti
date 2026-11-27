@@ -8,7 +8,7 @@ header{display:flex;gap:6px;align-items:center;padding:8px 12px;background:#fff;
 header h1{font-size:15px;margin:0 6px 0 0;white-space:nowrap}
 #pn{font:inherit;font-weight:600;border:1px solid transparent;border-radius:5px;padding:4px 6px;width:190px;background:#f3f5f9}
 #pn:focus{border-color:#1f6feb;outline:0;background:#fff}
-.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}.tabs .ren{padding:4px 7px;color:#1f6feb;border-color:#1f6feb}
 button{font:inherit;border:1px solid #c5cad3;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;color:inherit}
 button:hover{background:#f1f4f9}
 button.on{background:#1f6feb;color:#fff;border-color:#1f6feb}
@@ -517,10 +517,15 @@ function buildTools(){let h='<h3>Strumenti</h3><button data-t="sel">☝ Simboli:
  $('tools').onclick=e=>{const b=e.target.closest('button');if(!b)return;tool=b.dataset.t;if(tool==='sym')sym=b.dataset.k;if(tool==='pc')pre=b.dataset.k;dim=null;if(tool!=='mob')selP=null;if(tool==='mob')sel=null;tb();hint();drawAll();props();};
  $('tools').ondragstart=e=>{const b=e.target.closest('button[data-k]');if(b)e.dataTransfer.setData('text/plain',b.dataset.t==='pc'?'pc:'+b.dataset.k:b.dataset.k);};
  $('snap').onchange=e=>{snapOn=e.target.checked;};tb();}
-function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}${wallByKey(k)?' — doppio clic per rinominare':''}">${VIEWS[k].n}</button>`).join('');
+function buildTabs(){$('tabs').innerHTML=Object.keys(VIEWS).map(k=>`<button data-v="${k}" class="${k===cur?'on':''}" title="${VIEWS[k].s}${wallByKey(k)?' — doppio clic per rinominare':''}">${VIEWS[k].n}</button>${k===cur&&wallByKey(k)?'<button class="ren" id="ren" title="Rinomina questa parete">✎</button>':''}`).join('');
  $('flipbox').style.display=cur==='C'?'flex':'none';}
-$('tabs').ondblclick=e=>{const b=e.target.closest('button'),w=b&&wallByKey(b.dataset.v);if(!w)return;const v=prompt('Nome della parete:',w.n);if(v&&v.trim()){push();w.n=v.trim();VIEWS[w.k].n=w.n;buildTabs();}};
-$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.v);};
+function rinomina(k){const w=wallByKey(k),b=$('tabs').querySelector(`button[data-v="${k}"]`);if(!w||!b)return;
+ const i=document.createElement('input');i.value=w.n;i.className='tabin';i.style.cssText='width:'+Math.max(110,b.offsetWidth+30)+'px;font:inherit;padding:5px 8px;border:2px solid #1f6feb;border-radius:6px';
+ let fin=false;const ok=sv=>{if(fin)return;fin=true;const t=i.value.trim();if(sv&&t&&t!==w.n){push();w.n=t;VIEWS[w.k].n=t;}buildTabs();};
+ i.onkeydown=e=>{if(e.key==='Enter')ok(true);else if(e.key==='Escape')ok(false);e.stopPropagation();};i.onblur=()=>ok(true);
+ b.replaceWith(i);const r=$('ren');if(r)r.style.display='none';i.focus();i.select();}
+$('tabs').ondblclick=e=>{const b=e.target.closest('button[data-v]');if(b&&wallByKey(b.dataset.v))rinomina(b.dataset.v);};
+$('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='ren'){rinomina(cur);return;}if(b.dataset.v)go(b.dataset.v);};
 function go(v){cur=v;sel=null;selP=null;dim=null;tool=(tool==='sym'||tool==='pc')?'sel':tool;if(!vb[v])vb[v]=fitVB(v);buildTabs();tb();hint();setVB();drawAll();props();}
 function rebuild(){VIEWS=buildViews();inval();vb={};if(!VIEWS[cur])cur='D';go(cur);}
 const mirror=i=>{S.mir=S.mir||{};const m=S.mir[cur]||[0,0];m[i]=m[i]?0:1;S.mir[cur]=m;ec={};vb[cur]=fitVB(cur);setVB();drawAll();tb();autosave();};
