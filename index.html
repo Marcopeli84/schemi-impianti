@@ -888,6 +888,9 @@ function moveOwner(w,dx,dy,m){if(!w)return false;
  if(w.t==='o'){const o=E.ops.find(o=>o.id===w.id);if(!o)return false;if(o.lk){flash(LKMSG);return false;}const g=lg(E.lines[o.l]);
   const dd=m==='h'?(Math.abs(g.ux)>1e-6?dx/g.ux:0):m==='v'?(Math.abs(g.uy)>1e-6?dy/g.uy:0):dx*g.ux+dy*g.uy;o.d=R1(Math.max(0,Math.min(g.L-o.w,o.d+dd)));return true;}
  return false;}
+function dimGeom(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return null;let A=a,B=b;
+ if(d.m==='h'){const ym=(a.y+b.y)/2;A={x:a.x,y:ym};B={x:b.x,y:ym};}else if(d.m==='v'){const xm=(a.x+b.x)/2;A={x:xm,y:a.y};B={x:xm,y:b.y};}
+ return{a,b,A,B};}
 function dimVal(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return 0;return d.m==='h'?Math.abs(b.x-a.x):d.m==='v'?Math.abs(b.y-a.y):Math.hypot(b.x-a.x,b.y-a.y);}
 function setDim(i,v){if(!(v>=0))return;const d=E.dims[i],a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return;let dx=0,dy=0;
  if(d.m==='h')dx=a.x+(Math.sign(b.x-a.x)||1)*v-b.x;else if(d.m==='v')dy=a.y+(Math.sign(b.y-a.y)||1)*v-b.y;
@@ -895,11 +898,11 @@ function setDim(i,v){if(!(v>=0))return;const d=E.dims[i],a=aXY(d.p1),b=aXY(d.p2)
  push();if(moveOwner(ownerOf(d.p2),dx,dy,d.m))chg();else U.pop();}
 function anchorAt(px,py){let best=14,r=null;anchors().forEach(a=>{const d=Math.hypot(X(a.x)-px,Y(a.y)-py);if(d<best){best=d;r=a;}});return r;}
 function sameOwner(a,b){const p=ownerOf(a),q=ownerOf(b);return p&&q&&p.t===q.t&&p.id===q.id;}
-function toggleLock(h){if(!h)return;push();
+function toggleLock(h){if(!h||h.t==='d')return;push();
  if(h.t==='l'){const l=E.lines[h.i],nv=(P(l.a).lk&&P(l.b).lk&&l.lk)?0:1;l.lk=nv;P(l.a).lk=nv;P(l.b).lk=nv;}
  else{const o=h.t==='p'?P(h.i):h.t==='r'?E.rects[h.i]:h.t==='c'?E.circs[h.i]:E.ops[h.i];o.lk=o.lk?0:1;}
  chg();}
-function isLocked(h){if(!h)return false;if(h.t==='l'){const l=E.lines[h.i];return !!(P(l.a).lk||P(l.b).lk);}const o=h.t==='p'?P(h.i):h.t==='r'?E.rects[h.i]:h.t==='c'?E.circs[h.i]:E.ops[h.i];return !!(o&&o.lk);}
+function isLocked(h){if(!h||h.t==='d')return false;if(h.t==='l'){const l=E.lines[h.i];return !!(P(l.a).lk||P(l.b).lk);}const o=h.t==='p'?P(h.i):h.t==='r'?E.rects[h.i]:h.t==='c'?E.circs[h.i]:E.ops[h.i];return !!(o&&o.lk);}
 function opText(o){return o.txt||(o.kind+' '+R1(o.w));}
 function opGeom(o){const l=E.lines[o.l],g=lg(l);const d=Math.max(0,Math.min(o.d,g.L-1)),w=Math.min(o.w,g.L-d);return{g,p0:{x:g.A.x+g.ux*d,y:g.A.y+g.uy*d},p1:{x:g.A.x+g.ux*(d+w),y:g.A.y+g.uy*(d+w)},d,w};}
 function gc(){const used=new Set();E.lines.forEach(l=>{used.add(l.a);used.add(l.b);});const map={};const np=[];E.pts.forEach((p,i)=>{if(used.has(i)){map[i]=np.length;np.push(p);}});E.lines.forEach(l=>{l.a=map[l.a];l.b=map[l.b];});E.pts=np;}
@@ -938,7 +941,8 @@ function draw(){const svg=$('esvg'),r=svg.getBoundingClientRect();if(!r.width)re
   [og.p0,og.p1].forEach(p=>{s+=`<line x1="${X(p.x+g.nx*(lo-pe))}" y1="${Y(p.y+g.ny*(lo-pe))}" x2="${X(p.x+g.nx*(hi+pe))}" y2="${Y(p.y+g.ny*(hi+pe))}" stroke="${col}" stroke-width="2"/>`;});
   const mx=(og.p0.x+og.p1.x)/2,my=(og.p0.y+og.p1.y)/2,sd=side(g,mx,my,c),off=Math.max(bw,16)+14;
   q+=qbox('W'+i,X(mx)-sd.sx*off,Y(my)-sd.sy*off,R1(og.w),'#d97706');
-  q+=`<g class="qb" data-q="X${i}"><text x="${X(mx)+sd.sx*(off+22)}" y="${Y(my)+sd.sy*(off+22)+4}" text-anchor="middle" font-size="12" fill="#92400e" style="paint-order:stroke" stroke="#fff" stroke-width="3">${esc(opText(o))}</text></g>`;});
+  {const t=opText(o),w=Math.max(40,t.length*7+14),lx=X(mx)+sd.sx*(off+26),ly=Y(my)+sd.sy*(off+26);
+   q+=`<g class="qb" data-q="X${i}"><title>Testo dell'apertura: non cambia la misura</title><rect x="${lx-w/2}" y="${ly-9}" width="${w}" height="18" rx="9" fill="#fffbeb" stroke="#d97706" stroke-dasharray="3 2"/><text x="${lx}" y="${ly+4}" text-anchor="middle" font-size="12" font-style="italic" fill="#92400e">${esc(t)}</text></g>`;}});
  E.lines.forEach((l,i)=>{const g=lg(l);s+=`<line x1="${X(g.A.x)}" y1="${Y(g.A.y)}" x2="${X(g.B.x)}" y2="${Y(g.B.y)}" stroke="${isS('l',i)?'#1f6feb':'#1d2433'}" stroke-width="1.3"/>`;
   if(isS('l',i)){const ax=X(g.A.x+g.ux*g.L*.6),ay=Y(g.A.y+g.uy*g.L*.6),dx=g.ux,dy=-g.uy;s+=`<polygon points="${ax+dx*9},${ay+dy*9} ${ax-dx*5-dy*6},${ay-dy*5+dx*6} ${ax-dx*5+dy*6},${ay-dy*5-dx*6}" fill="#1f6feb"/>`;}
   const mx=(g.A.x+g.B.x)/2,my=(g.A.y+g.B.y)/2,sd=side(g,mx,my,c),off=Math.max(bw,10)+10;
@@ -951,11 +955,11 @@ function draw(){const svg=$('esvg'),r=svg.getBoundingClientRect();if(!r.width)re
   if(r.txt)s+=`<text x="${X(r.x)}" y="${Y(r.y)+4}" text-anchor="middle" font-size="12" fill="#1d2433">${esc(r.txt)}</text>`;});
  E.pts.forEach((p,i)=>{s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${isS('p',i)?5:3}" fill="${isS('p',i)?'#1f6feb':'#fff'}" stroke="#1d2433"/>`;});
  dists(sel).forEach(o=>{s+=`<line x1="${X(o.ax)}" y1="${Y(o.ay)}" x2="${X(o.bx)}" y2="${Y(o.by)}" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${X(o.ax)}" cy="${Y(o.ay)}" r="2.5" fill="#0f766e"/><circle cx="${X(o.bx)}" cy="${Y(o.by)}" r="2.5" fill="#0f766e"/>`;q+=qbox('P'+o.k,(X(o.ax)+X(o.bx))/2,(Y(o.ay)+Y(o.by))/2,R1(o.d),'#0f766e');});
-E.dims.forEach((d,i)=>{const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return;let A=a,B=b;
-  if(d.m==='h'){const ym=(a.y+b.y)/2;A={x:a.x,y:ym};B={x:b.x,y:ym};}else if(d.m==='v'){const xm=(a.x+b.x)/2;A={x:xm,y:a.y};B={x:xm,y:b.y};}
-  const L=(x1,y1,x2,y2,w,da)=>`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="#7c3aed" stroke-width="${w}"${da?' stroke-dasharray="3 3" opacity=".7"':''}/>`;
-  s+=L(a.x,a.y,A.x,A.y,1,1)+L(b.x,b.y,B.x,B.y,1,1)+L(A.x,A.y,B.x,B.y,1.5)+`<rect x="${X(a.x)-4}" y="${Y(a.y)-4}" width="8" height="8" fill="#7c3aed"/><circle cx="${X(b.x)}" cy="${Y(b.y)}" r="4" fill="#7c3aed"/>`;
-  q+=qbox('D'+i,X((A.x+B.x)/2),Y((A.y+B.y)/2),R1(dimVal(d)),'#7c3aed');});
+E.dims.forEach((d,i)=>{const G=dimGeom(d);if(!G)return;const{a,b,A,B}=G,on=isS('d',i),col=on?'#4c1d95':'#7c3aed';
+  const L=(x1,y1,x2,y2,w,da)=>`<line x1="${X(x1)}" y1="${Y(y1)}" x2="${X(x2)}" y2="${Y(y2)}" stroke="${col}" stroke-width="${w}"${da?' stroke-dasharray="3 3" opacity=".7"':''}/>`;
+  if(on)s+=`<line x1="${X(A.x)}" y1="${Y(A.y)}" x2="${X(B.x)}" y2="${Y(B.y)}" stroke="#c4b5fd" stroke-width="9" stroke-opacity=".7" stroke-linecap="round"/>`;
+  s+=L(a.x,a.y,A.x,A.y,1,1)+L(b.x,b.y,B.x,B.y,1,1)+L(A.x,A.y,B.x,B.y,on?2.5:1.5)+`<rect x="${X(a.x)-4}" y="${Y(a.y)-4}" width="8" height="8" fill="${col}"/><circle cx="${X(b.x)}" cy="${Y(b.y)}" r="4" fill="${col}"/>`;
+  q+=qbox('D'+i,X((A.x+B.x)/2),Y((A.y+B.y)/2),R1(dimVal(d)),col);});
  if(tool==='dim'){const hv=mouse?anchorAt(mouse.px,mouse.py):null;anchors().forEach(a=>{s+=`<circle cx="${X(a.x)}" cy="${Y(a.y)}" r="3" fill="none" stroke="#7c3aed" opacity=".45"/>`;});
   if(dpend){s+=`<rect x="${X(dpend.x)-5}" y="${Y(dpend.y)-5}" width="10" height="10" fill="#7c3aed"/>`;
    if(hv&&JSON.stringify(hv.ref)!==JSON.stringify(dpend.ref))s+=`<line x1="${X(dpend.x)}" y1="${Y(dpend.y)}" x2="${X(hv.x)}" y2="${Y(hv.y)}" stroke="#7c3aed" stroke-dasharray="5 4"/>`;}
@@ -981,6 +985,7 @@ function dseg(px,py,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy||1e-9;le
 function hit(px,py){
  for(let i=0;i<E.pts.length;i++)if(Math.hypot(X(P(i).x)-px,Y(P(i).y)-py)<=8)return{t:'p',i};
  for(let i=0;i<E.ops.length;i++){const og=opGeom(E.ops[i]);if(dseg(px,py,X(og.p0.x),Y(og.p0.y),X(og.p1.x),Y(og.p1.y))<=8)return{t:'o',i};}
+for(let i=0;i<E.dims.length;i++){const G=dimGeom(E.dims[i]);if(G&&dseg(px,py,X(G.A.x),Y(G.A.y),X(G.B.x),Y(G.B.y))<=7)return{t:'d',i};}
  for(let i=E.rects.length-1;i>=0;i--){const r=E.rects[i],a=-(r.rot||0)*Math.PI/180,dx=wx(px)-r.x,dy=wy(py)-r.y,lx=dx*Math.cos(a)-dy*Math.sin(a),ly=dx*Math.sin(a)+dy*Math.cos(a);if(Math.abs(lx)<=r.w/2&&Math.abs(ly)<=r.d/2)return{t:'r',i};}
  for(let i=E.circs.length-1;i>=0;i--){const r=E.circs[i];if(Math.hypot(wx(px)-r.x,wy(py)-r.y)<=r.d/2)return{t:'c',i};}
  for(let i=0;i<E.lines.length;i++){const g=lg(E.lines[i]);if(dseg(px,py,X(g.A.x),Y(g.A.y),X(g.B.x),Y(g.B.y))<=Math.max(7,E.T*V.k/2))return{t:'l',i};}
@@ -989,7 +994,7 @@ function del(h){if(!h)return;push();
  if(h.t==='l'){E.ops=E.ops.filter(o=>o.l!==h.i);E.ops.forEach(o=>{if(o.l>h.i)o.l--;});E.lines.splice(h.i,1);gc();}
  else if(h.t==='p'){const keep=[];const rm=new Set();E.lines.forEach((l,i)=>{if(l.a===h.i||l.b===h.i)rm.add(i);});
   const mp=[];let n=0;E.lines.forEach((l,i)=>{mp[i]=rm.has(i)?-1:n++;});E.ops=E.ops.filter(o=>mp[o.l]>=0);E.ops.forEach(o=>o.l=mp[o.l]);E.lines=E.lines.filter((l,i)=>!rm.has(i));gc();}
- else if(h.t==='o')E.ops.splice(h.i,1);else if(h.t==='r')E.rects.splice(h.i,1);else if(h.t==='c')E.circs.splice(h.i,1);
+ else if(h.t==='d')E.dims.splice(h.i,1);else if(h.t==='o')E.ops.splice(h.i,1);else if(h.t==='r')E.rects.splice(h.i,1);else if(h.t==='c')E.circs.splice(h.i,1);
  sel=null;chg();}
 /* ---------- puntatore ---------- */
 function bind(){const svg=$('esvg');
@@ -1003,15 +1008,15 @@ function bind(){const svg=$('esvg');
   if(gest.drag){doDrag(gest.drag,px,py);}else{V.cx=gest.cx-dx/V.k;V.cy=gest.cy+dy/V.k;draw();}});
  svg.addEventListener('pointerup',e=>{if(!gest)return;const g=gest;gest=null;if(g.drag){if(g.moved)save();return;}if(g.moved||g.btn!==0)return;click(g.px,g.py,e.shiftKey);});
  svg.addEventListener('pointerleave',()=>{mouse=null;if(!gest)draw();});
- svg.addEventListener('click',e=>{const q=e.target.closest('.qb');if(!q)return;const k=q.dataset.q;if(tool==='del'&&k[0]==='D'){push();E.dims.splice(+k.slice(1),1);chg();return;}ask(k);});
+ svg.addEventListener('click',e=>{const q=e.target.closest('.qb');if(!q)return;const k=q.dataset.q;if(k[0]==='D'){if(tool==='del'){push();E.dims.splice(+k.slice(1),1);sel=null;chg();return;}sel={t:'d',i:+k.slice(1)};props();draw();}ask(k);});
  svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,x=wx(px),y=wy(py);
   V.k=Math.max(.004,Math.min(6,V.k*Math.pow(1.15,-e.deltaY/100)));V.cx=x-(px-W/2)/V.k;V.cy=y+(py-HH/2)/V.k;draw();},{passive:false});}
-function startDrag(h,px,py){const d={h,undo:false};if(isLocked(h)){d.locked=true;return d;}
+function startDrag(h,px,py){const d={h,undo:false};if(h.t==='d'){d.none=true;return d;}if(isLocked(h)){d.locked=true;return d;}
  if(h.t==='o'){const og=opGeom(E.ops[h.i]);d.off=((wx(px)-og.g.A.x)*og.g.ux+(wy(py)-og.g.A.y)*og.g.uy)-og.d;}
  else if(h.t==='r'||h.t==='c'){const o=h.t==='r'?E.rects[h.i]:E.circs[h.i];d.dx=o.x-wx(px);d.dy=o.y-wy(py);}
  else if(h.t==='l'){const l=E.lines[h.i];d.a={x:P(l.a).x,y:P(l.a).y};d.b={x:P(l.b).x,y:P(l.b).y};d.x0=wx(px);d.y0=wy(py);}
  return d;}
-function doDrag(d,px,py){if(d.locked){flash(LKMSG);return;}if(!d.undo){push();d.undo=true;}const h=d.h;
+function doDrag(d,px,py){if(d.none)return;if(d.locked){flash(LKMSG);return;}if(!d.undo){push();d.undo=true;}const h=d.h;
  if(h.t==='p'){const old=snapOn;let x=wx(px),y=wy(py),idx=null;if(snapOn){let best=14;E.pts.forEach((p,i)=>{if(i===h.i)return;const dd=Math.hypot(X(p.x)-px,Y(p.y)-py);if(dd<best){best=dd;idx=i;}});}
   if(idx!=null){x=P(idx).x;y=P(idx).y;}else if(gridSnap){x=Math.round(x/gstep)*gstep;y=Math.round(y/gstep)*gstep;}P(h.i).x=Math.round(x);P(h.i).y=Math.round(y);}
  else if(h.t==='r'||h.t==='c'){const o=h.t==='r'?E.rects[h.i]:E.circs[h.i];o.x=Math.round(wx(px)+d.dx);o.y=Math.round(wy(py)+d.dy);if(gridSnap){o.x=Math.round(o.x/gstep)*gstep;o.y=Math.round(o.y/gstep)*gstep;}}
@@ -1072,13 +1077,16 @@ function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('
   else if(s.t==='r'){const r=E.rects[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Larghezza','data-s="w"',r.w)}${fld('Profondità','data-s="d"',r.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-s="h"',r.h)}${fld('Da terra','data-s="z"',r.z)}</div>${fld('Rotazione °','data-s="rot"',r.rot||0)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='c'){const r=E.circs[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Diametro','data-s="d"',r.d)}${fld('Altezza (0 = muri)','data-s="h"',r.h)}</div>${fld('Da terra','data-s="z"',r.z)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='o'){const o=E.ops[s.i];h+=`<small>Tipo</small><select data-s="kind">${Object.keys(KINDS).map(k=>`<option${k===o.kind?' selected':''}>${k}</option>`).join('')}</select><div class="row">${fld('Larghezza','data-s="w"',o.w)}${fld('Dall\'inizio linea','data-s="d"',R1(o.d))}</div><div class="row">${fld('Da terra','data-s="z"',o.z)}${fld('Altezza (0 = fino al soffitto)','data-s="h"',o.h)}</div>${fld('Testo (vuoto = automatico)','data-s="txt"',o.txt,'text')}`;}
+  else if(s.t==='d'){const d=E.dims[s.i];h+=`${fld('Misura','data-s="dv"',R1(dimVal(d)))}<small>Direzione</small><select data-s="dm">${[['h','Orizzontale'],['v','Verticale'],['a','Allineata']].map(([k,t])=>`<option value="${k}"${d.m===k?' selected':''}>${t}</option>`).join('')}</select><button id="edswap" style="width:100%;margin-bottom:6px">Scambia 1° e 2° punto</button><small>Il 1° punto (quadratino) resta fermo, il 2° (pallino) si sposta cambiando la misura.</small>`;}
   else if(s.t==='p'){const p=P(s.i);h+=`<div class="row">${fld('X','data-s="x"',p.x)}${fld('Y','data-s="y"',p.y)}</div><small>Punto di giunzione: spostandolo si spostano le linee collegate.</small>`;}
-  h+=`<label class="ck"><input type="checkbox" data-s="lk" style="width:auto;margin:0"${isLocked(s)?' checked':''}> Bloccato (non si sposta)</label><button class="danger" id="edrm" style="margin-top:8px">Elimina</button>`;}
+  if(s.t!=='d')h+=`<label class="ck"><input type="checkbox" data-s="lk" style="width:auto;margin:0"${isLocked(s)?' checked':''}> Bloccato (non si sposta)</label>`;
+  h+=`<button class="danger" id="edrm" style="margin-top:8px">Elimina</button>`;}
  p.innerHTML=h;}
 function onField(el){const d=el.dataset,v=el.type==='text'?el.value:num(el.value);
  if(d.g){if(v>0){push();E[d.g]=v;chg();}return;}
  if(d.n){const m={rw:['w',RP],rd:['d',RP],rh:['h',RP],rz:['z',RP],rt:['txt',RP],cd:['d',CP],ch:['h',CP],cz:['z',CP],ct:['txt',CP]}[d.n];if(m[1]===RP||m[1]===CP){if(el.type==='text')m[1][m[0]]=v;else if(v>=0)m[1][m[0]]=v;}return;}
  if(!sel)return;const f=d.s;
+ if(sel.t==='d'){const dd=E.dims[sel.i];if(!dd)return;if(f==='dv')setDim(sel.i,v);else if(f==='dm'){push();dd.m=el.value;chg();}return;}
  if(f==='lk'){push();const on=el.checked?1:0;if(sel.t==='l'){const l=E.lines[sel.i];l.lk=on;P(l.a).lk=on;P(l.b).lk=on;}else{const o=sel.t==='p'?P(sel.i):sel.t==='r'?E.rects[sel.i]:sel.t==='c'?E.circs[sel.i]:E.ops[sel.i];o.lk=on;}chg();return;}
  if(isLocked(sel)&&(f==='x'||f==='y'||f==='d'&&sel.t==='o'||f==='llen'||f==='rot'&&false)){flash(LKMSG);props();return;}
  push();
@@ -1133,13 +1141,13 @@ function bindOnce(){if(bound)return;bound=true;bind();
  $('edus').onclick=()=>{if(vuoto()){alert('Disegna almeno una linea.');return;}askEnd(false);save();const d=dxf();$('ed').style.display='none';importDxf(new File([d.text],fname()+'.dxf',{type:'application/dxf'}));};
  const inp=$('edin');inp.onkeydown=e=>{if(e.key==='Enter')askEnd(true);else if(e.key==='Escape')askEnd(false);e.stopPropagation();};inp.onblur=()=>askEnd(true);
  $('edp').addEventListener('change',e=>{const el=e.target;if(el.id==='edkind'){kind=el.value;return;}if(el.id==='eddim'){dimMode=el.value;return;}if(el.id==='edside'){push();E.sd=el.value;chg();return;}if(el.dataset&&(el.dataset.g||el.dataset.n||el.dataset.s))onField(el);});
- $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'l');chg();}});
+ $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edswap'&&sel&&sel.t==='d'){push();const dd=E.dims[sel.i];const t=dd.p1;dd.p1=dd.p2;dd.p2=t;chg();}if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'l');chg();}});
  addEventListener('resize',()=>{if(isOpen())draw();});
  addEventListener('keydown',e=>{if(!isOpen())return;if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
   if(e.key==='Escape'){if(dpend){dpend=null;hint();draw();}else if(pend){pend=null;hint();draw();}else if(sel){sel=null;props();draw();}}
   else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();del(sel);}
   else if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undo();}});}
 $('bed').onclick=open;
-window.__ed={anchors,aXY,dp:()=>dpend,get:()=>E,set:o=>{E=o;chg();},dxf,fit,open};
+window.__ed={undo:()=>undo(),anchors,aXY,dp:()=>dpend,get:()=>E,set:o=>{E=o;chg();},dxf,fit,open};
 })();
 </script></body></html>
