@@ -22,3 +22,14 @@ Quando disegni una parete nella pianta dell'import, gli angoli dei mobili sono p
 **Stampa / PDF:** il pulsante «Intestazione stampa…» apre le impostazioni a parte: campi da spuntare e compilare in alto a sinistra (file di origine, nome parete, dettagli tra parentesi, cliente, indirizzo, commessa, data, disegnatore, note e campi propri), logo in basso a destra (`logo.png`, altezza regolabile) e nomi delle pareti. Le scelte restano salvate nel browser per i lavori successivi. Le pareti si rinominano anche con doppio clic sulla scheda.
 
 Ogni campo dell'intestazione, e il logo, ha un menù per scegliere l'angolo del foglio in cui stamparlo (alto/basso, sinistra/destra); nella finestra c'è un'anteprima del foglio.
+
+## Editor DXF
+
+Il tasto **Editor DXF** (accanto a «Importa DXF») apre un foglio in mm dove disegnare una piantina personalizzata senza Metron.
+
+- **Linea**: clicca primo e secondo punto (resta attiva per la linea dopo). Il riquadro blu accanto a ogni linea mostra la lunghezza: cliccalo e scrivi la quota, la linea si aggiorna. **Aggancio** attacca il punto a un vertice esistente (cerchio verde); **Orto** (o tasto Maiusc) blocca orizzontale/verticale.
+- **Angoli**: dove due linee condividono un vertice compare un riquadro arancione con i °; scrivendo il valore ruota la linea disegnata dopo.
+- **Rettangolo / Cerchio**: misure, altezza, quota da terra e testo a destra, poi clic nel foglio (es. una colonna).
+- **Apertura** (porta/finestra/altro): clic su una linea. Due trattini perpendicolari, larghezza quotabile, testo accanto, posizione, altezza da terra e altezza apertura nel pannello. Nel DXF il muro si interrompe (con architrave e sottofinestra).
+- **Sposta / Elimina**, rotellina = zoom, trascina il vuoto = sposta il foglio, Ctrl+Z annulla. Altezza e spessore dei muri sono modificabili (2700 e 100 mm di partenza).
+- **Salva DXF** scarica il file; **Usa nel programma** lo passa subito al selettore pareti; **Salva file / Apri file** conservano il disegno modificabile (.editor.json). Il disegno viene anche salvato da solo nel browser.
