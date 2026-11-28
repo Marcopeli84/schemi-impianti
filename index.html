@@ -118,9 +118,9 @@ g[data-id],g[data-pid]{cursor:pointer}
 </main>
 <div id="ovl"><div class="box" id="box"></div></div>
 <div id="ed"><div class="ph"><b>Editor DXF</b><input type="text" id="ednm" title="Nome del disegno (diventa il nome del DXF)">
-<button data-t="select" title="Seleziona e sposta">Sposta</button><button data-t="line">Linea</button><button data-t="rect">Rettangolo</button><button data-t="circ">Cerchio</button><button data-t="op">Apertura</button><button data-t="del">Elimina</button>
+<button data-t="sel" title="Seleziona un elemento e vedi i suoi campi">Seleziona</button><button data-t="select" title="Seleziona e trascina">Sposta</button><button data-t="line">Linea</button><button data-t="rect">Rettangolo</button><button data-t="circ">Cerchio</button><button data-t="op">Apertura</button><button data-t="del">Elimina</button>
 <label class="ck" title="Aggancia ai punti già disegnati"><input type="checkbox" id="edsn" checked> Aggancio punti</label><label class="ck" title="Aggancia ai nodi della griglia"><input type="checkbox" id="edgs" checked> Griglia</label><label class="ck"><input type="checkbox" id="edor"> Orto</label>
-<span class="sp" style="flex:1"></span><button id="edun" title="Ctrl+Z">↶ Annulla</button><button id="ednew">Nuovo</button><button id="edof">Apri file…</button><input type="file" id="edfile" accept=".json" hidden><button id="edsf" title="Salva il disegno modificabile">Salva file</button><button id="edsd" title="Scarica il DXF">Salva DXF</button><button id="edus" class="pri" title="Importa il DXF nel programma">Usa nel programma</button><button id="edclose">Chiudi</button></div>
+<span class="sp" style="flex:1"></span><button id="edun" title="Ctrl+Z">↶ Annulla</button><button id="ednew" class="danger" title="Cancella tutti gli elementi del disegno">Clear</button><button id="edof">Apri file…</button><input type="file" id="edfile" accept=".json" hidden><button id="edsf" title="Salva il disegno modificabile">Salva file</button><button id="edsd" title="Scarica il DXF">Salva DXF</button><button id="edus" class="pri" title="Importa il DXF nel programma">Usa nel programma</button><button id="edclose">Chiudi</button></div>
 <div class="eb"><div id="edw"><svg id="esvg" xmlns="http://www.w3.org/2000/svg"></svg><div id="edhint"></div><div id="edst"></div><input id="edin" type="text"><div id="edz"><button id="edzi">＋</button><button id="edzo">−</button><button id="edfit" title="Inquadra tutto">⤢</button></div></div><div id="edp"></div></div></div>
 <div id="pick"><div class="ph"><b>Scegli le pareti</b><span class="t">Premi ＋ Parete e clicca i due estremi di ogni parete che ti serve. La freccia mostra da dove guardi la parete; il pallino ⇄ inverte il lato, un clic sulla parete la toglie. Rotellina = zoom, trascina = sposta.</span><button id="padd" title="Clicca due punti sulla pianta per creare una parete a mano">＋ Parete</button><button id="pnone" title="Deseleziona tutte le pareti">Nessuna</button><label class="ck"><input type="checkbox" id="pall"> Mostra pareti suggerite</label><b id="pcount"></b><label class="ck" id="pkw" style="display:none"><input type="checkbox" id="pkeep"> Tieni simboli e quote già disegnati</label><button id="pcan">Annulla</button><button id="pok" class="pri">Importa</button></div><svg id="psvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
 <div id="dz">Rilascia qui un file DXF o un lavoro salvato (.json)</div>
@@ -165,16 +165,17 @@ function workerMain(){
    const rd=file.stream().getReader(),dec=new TextDecoder('utf-8'),total=file.size||1;
    let got=0,carry='',have=false,code=0,lastPost=0,nlines=0;
    const out=[],skipped={},cnt={S:0,P:0};
-   let inEnt=false,secWait=false,cur=null,sat=null,bb=null,bp=null,poly=null,vx=0,vy=0,vz=0,vf=0;
+   let inEnt=false,secWait=false,cur=null,sat=null,bb=null,bp=null,poly=null,vx=0,vy=0,vz=0,vf=0,ci=null;
    const xs=[0,0,0,0],ys=[0,0,0,0];
    const fresh=()=>[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
    const ext=(b,x,y,z)=>{if(x<b[0])b[0]=x;if(y<b[1])b[1]=y;if(z<b[2])b[2]=z;if(x>b[3])b[3]=x;if(y>b[4])b[4]=y;if(z>b[5])b[5]=z;};
-   const push=(b,t,q)=>{if(b&&isFinite(b[0])&&isFinite(b[3])){out.push([Math.round(b[0]),Math.round(b[1]),Math.round(b[2]),Math.round(b[3]),Math.round(b[4]),Math.round(b[5]),t,q||0]);cnt[t]++;}};
+   const push=(b,t,q,c)=>{if(b&&isFinite(b[0])&&isFinite(b[3])){out.push([Math.round(b[0]),Math.round(b[1]),Math.round(b[2]),Math.round(b[3]),Math.round(b[4]),Math.round(b[5]),t,q||0,c?1:0]);cnt[t]++;}};
    function endEnt(){
     if(cur==='3DSOLID'){const p=sat&&sat.length?solidPts(sat):null;if(p){const b=fresh();for(const q of p)ext(b,q[0],q[1],q[2]);push(b,'S',obbQuad(p,b));}sat=null;}
     else if(cur==='POLYLINE'){if(poly)poly.pf=(poly.flags&64)!==0;}
     else if(cur==='VERTEX'){if(poly&&(!poly.pf||(vf&64))){ext(poly.bb,vx,vy,vz);poly.pts.push([vx,vy]);}}
     else if(cur==='MESH'||cur==='3DFACE'){push(bb,'P',obbQuad(bp,bb));bb=null;bp=null;}
+    else if(cur==='CIRCLE'){if(ci&&ci.r>0&&ci.th>0&&isFinite(ci.x+ci.y+ci.z)){const b=[ci.x-ci.r,ci.y-ci.r,ci.z,ci.x+ci.r,ci.y+ci.r,ci.z+ci.th];push(b,'P',0,1);}ci=null;}
     cur=null;}
    function endPoly(){if(poly){push(poly.bb,'P',obbQuad(poly.pts,poly.bb));poly=null;}}
    function start(t){
@@ -183,6 +184,7 @@ function workerMain(){
     else if(t==='SEQEND'){endPoly();cur=null;}
     else if(t==='3DSOLID'){cur=t;sat=[];}
     else if(t==='MESH'||t==='3DFACE'){cur=t;bb=fresh();bp=[];}
+    else if(t==='CIRCLE'){cur=t;ci={x:0,y:0,z:0,r:0,th:0};}
     else{cur=null;skipped[t]=(skipped[t]||0)+1;}}
    function handle(c,v){
     if(c===0){const t=v.trim();
@@ -193,6 +195,7 @@ function workerMain(){
     if(cur==='3DSOLID'){if(c===1||c===3)sat.push(v);}
     else if(cur==='VERTEX'){if(c===10)vx=parseFloat(v);else if(c===20)vy=parseFloat(v);else if(c===30)vz=parseFloat(v);else if(c===70)vf=parseInt(v,10)||0;}
     else if(cur==='POLYLINE'){if(c===70&&poly)poly.flags=parseInt(v,10)||0;}
+    else if(cur==='CIRCLE'){const n=parseFloat(v);if(c===10)ci.x=n;else if(c===20)ci.y=n;else if(c===30)ci.z=n;else if(c===40)ci.r=n;else if(c===39)ci.th=n;}
     else if(cur==='MESH'||cur==='3DFACE'){
      if(c>=10&&c<=13)xs[c-10]=parseFloat(v);else if(c>=20&&c<=23)ys[c-20]=parseFloat(v);
      else if(c>=30&&c<=33){const z=parseFloat(v),i=c-30;if(cur==='MESH'&&i!==0)return;ext(bb,xs[i],ys[i],z);bp.push([xs[i],ys[i]]);}}}
@@ -309,6 +312,7 @@ function piecesSVG(v,live){
  s+=`<g opacity="${OP}">`;
  for(const q of rects(v)){const p=q[4],a=U(v,q[0]),b=U(v,q[2]),x=Math.min(a,b),w=Math.max(Math.abs(b-a),.4),h=Math.max(q[3]-q[1],.4);
   const cl=(live&&selP===p.id)?'sl':(p.t==='P'?'pm':p.t==='M'?'pu':'ps');
+  if(V.lab==='y'&&p.c){s+=`<ellipse class="${cl}" ${live?`data-pid="${p.id}" `:''}cx="${U(v,(p.x0+p.x1)/2).toFixed(1)}" cy="${Y(v,(p.y0+p.y1)/2).toFixed(1)}" rx="${((p.x1-p.x0)/2).toFixed(1)}" ry="${((p.y1-p.y0)/2).toFixed(1)}"/>`;continue;}
   if(V.lab==='y'&&p.q){s+=`<polygon class="${cl}" ${live?`data-pid="${p.id}" `:''}points="${[0,1,2,3].map(i=>U(v,p.q[2*i]).toFixed(1)+','+Y(v,p.q[2*i+1]).toFixed(1)).join(' ')}"/>`;continue;}
   s+=`<rect class="${cl}" ${live?`data-pid="${p.id}" `:''}x="${x.toFixed(1)}" y="${(MV(v)?q[1]:-q[3]).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"/>`;}
  s+='</g>';
@@ -737,7 +741,7 @@ function importDone(f,m){
 function pkOrder(){return [...pk.on].map(i=>({i,c:ecand(pk.cand[i],pk.rev.has(i))})).sort((a,b)=>chiave(a.c)-chiave(b.c)||pk.cand[a.i].umin-pk.cand[b.i].umin);}
 function pkDraw(){
  const sv=$('psvg'),u=pk.u,X=x=>x.toFixed(0),Y=y=>(-y).toFixed(0);let s='';
- for(const p of pk.pcs){const c=cornersA(p);s+=`<polygon points="${c.map(q=>X(q[0])+','+Y(q[1])).join(' ')}" fill="rgba(90,90,100,${p[2]>=1000?.07:.16})" stroke="#999" stroke-width=".7" vector-effect="non-scaling-stroke"/>`;}
+ for(const p of pk.pcs){if(p[8]){s+=`<ellipse cx="${X((p[0]+p[3])/2)}" cy="${Y((p[1]+p[4])/2)}" rx="${X((p[3]-p[0])/2)}" ry="${X((p[4]-p[1])/2)}" fill="rgba(90,90,100,${p[2]>=1000?.07:.16})" stroke="#999" stroke-width=".7" vector-effect="non-scaling-stroke"/>`;continue;}const c=cornersA(p);s+=`<polygon points="${c.map(q=>X(q[0])+','+Y(q[1])).join(' ')}" fill="rgba(90,90,100,${p[2]>=1000?.07:.16})" stroke="#999" stroke-width=".7" vector-effect="non-scaling-stroke"/>`;}
  const names={};pkOrder().forEach((o,k)=>names[o.i]='Parete '+(k+1));
  pk.cand.forEach((c,i)=>{const on=pk.on.has(i),rev=pk.rev.has(i),[A,B]=cEnds(c,rev),ec=ecand(c,rev),mx=(A[0]+B[0])/2,my=(A[1]+B[1])/2;
   if(!on&&!pk.all&&!pk.prop.has(i)&&!c.manual)return;
@@ -795,7 +799,7 @@ function pkPt(e){const sv=$('psvg'),q=sv.createSVGPoint();q.x=e.clientX;q.y=e.cl
   n.walls=[];n.ann={C:[],D:[]};
   for(const o of pkOrder()){const c=cand[o.i],rev=pk.rev.has(o.i),[A,B]=cEnds(c,rev),k=freeKey(sideOfDir(o.c.e),n.walls,null);
    const w={k,n:freeName(n.walls),auto:false,show:true,p1:A,p2:B};if(rev)w.rev=true;if(c.manual)w.man=true;n.walls.push(w);n.ann[k]=[];}
-  n.pid=1;n.pieces=pcs.map(p=>{const o={id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]};if(p[7])o.q=p[7];return o;});
+  n.pid=1;n.pieces=pcs.map(p=>{const o={id:n.pid++,x0:p[0],y0:p[1],z0:p[2],x1:p[3],y1:p[4],z1:p[5],t:p[6]};if(p[7])o.q=p[7];if(p[8])o.c=1;return o;});
   n.nid=S.nid;if(keep){for(const k in old)if(n.ann[k])n.ann[k]=old[k];}
   pkClose();S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;tool='sel';cur='D';rebuild();autosave();};})();
 addEventListener('dragenter',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))$('dz').style.display='flex';});
@@ -814,7 +818,7 @@ const KEY='schemi_editor_v1';
 const KINDS={Porta:{w:900,z:0,h:2100},Finestra:{w:1200,z:900,h:1200},Altro:{w:900,z:0,h:0}};
 const RP={w:600,d:600,h:0,z:0,txt:''},CP={d:400,h:0,z:0,txt:''};
 let E=nuovo(),V={cx:2000,cy:1500,k:.15},gridSnap=true,gstep=100,tool='line',snapOn=true,orto=false,sel=null,pend=null,mouse=null,gest=null,U=[],kind='Porta',W=800,HH=600;
-function nuovo(){return{v:1,name:'Piantina',H:2700,T:100,sd:'c',pts:[],lines:[],rects:[],circs:[],ops:[]};}
+function nuovo(){return{v:1,name:'Piantina',H:2700,T:100,sd:'l',pts:[],lines:[],rects:[],circs:[],ops:[]};}
 const R1=x=>Math.round(x*10)/10,P=i=>E.pts[i];
 const X=x=>(x-V.cx)*V.k+W/2,Y=y=>HH/2-(y-V.cy)*V.k,wx=px=>(px-W/2)/V.k+V.cx,wy=py=>V.cy-(py-HH/2)/V.k;
 const isOpen=()=>$('ed').style.display==='flex';
@@ -824,10 +828,28 @@ function undo(){if(!U.length)return;E=JSON.parse(U.pop());sel=null;pend=null;chg
 function chg(noSave){if(!noSave||1)save();draw();props();}
 function lg(l){const A=P(l.a),B=P(l.b),dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1e-9;return{A,B,L,ux:dx/L,uy:dy/L,nx:-dy/L,ny:dx/L};}
 function cen(){let sx=0,sy=0,n=0;E.pts.forEach(p=>{sx+=p.x;sy+=p.y;n++;});E.rects.concat(E.circs).forEach(r=>{sx+=r.x;sy+=r.y;n++;});return n?{x:sx/n,y:sy/n}:{x:0,y:0};}
-function sideOff(l){const T=E.T,s=l.s||'c';return s==='l'?[0,T]:s==='r'?[-T,0]:[-T/2,T/2];}
+function sideOff(l){const T=E.T,s=l.s||'l';return s==='l'?[0,T]:s==='r'?[-T,0]:[-T/2,T/2];}
 function ext(i,end){const l=E.lines[i],g=lg(l),v=end==='a'?l.a:l.b,ox=end==='a'?-g.ux:g.ux,oy=end==='a'?-g.uy:g.uy;let e=0;
  E.lines.forEach((m,j)=>{if(j===i||(m.a!==v&&m.b!==v))return;const gm=lg(m);sideOff(m).forEach(o=>{e=Math.max(e,gm.nx*o*ox+gm.ny*o*oy);});});return e;}
 function bq(g,lo,hi,s0,s1){const a={x:g.A.x+g.ux*s0,y:g.A.y+g.uy*s0},b={x:g.A.x+g.ux*s1,y:g.A.y+g.uy*s1};return[[a.x+g.nx*lo,a.y+g.ny*lo],[b.x+g.nx*lo,b.y+g.ny*lo],[b.x+g.nx*hi,b.y+g.ny*hi],[a.x+g.nx*hi,a.y+g.ny*hi]];}
+const rotp=(x,y,a)=>({x:x*Math.cos(a)-y*Math.sin(a),y:x*Math.sin(a)+y*Math.cos(a)});
+function rectPoly(r){const a=(r.rot||0)*Math.PI/180;return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([p,q])=>{const o=rotp(p*r.w/2,q*r.d/2,a);return[r.x+o.x,r.y+o.y];});}
+function circPoly(r){const o=[];for(let i=0;i<24;i++){const a=i*Math.PI/12;o.push([r.x+Math.cos(a)*r.d/2,r.y+Math.sin(a)*r.d/2]);}return o;}
+/* distanze libere di un rettangolo/cerchio dagli altri elementi, nelle 4 direzioni */
+const DIRS=[[-1,0],[1,0],[0,1],[0,-1]];
+function hitsT(poly,ox,oy,dx,dy){const o=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length];
+ if(dx!==0){if(p[1]!==q[1]&&(p[1]-oy)*(q[1]-oy)<=0){const x=p[0]+(oy-p[1])*(q[0]-p[0])/(q[1]-p[1]);o.push((x-ox)*dx);}}
+ else{if(p[0]!==q[0]&&(p[0]-ox)*(q[0]-ox)<=0){const y=p[1]+(ox-p[0])*(q[1]-p[1])/(q[0]-p[0]);o.push((y-oy)*dy);}}}return o;}
+function dists(it){if(!it||(it.t!=='r'&&it.t!=='c'))return[];const me=it.t==='r'?E.rects[it.i]:E.circs[it.i],own=it.t==='r'?rectPoly(me):circPoly(me);
+ const others=[];E.lines.forEach((l,i)=>{const g=lg(l),[lo,hi]=sideOff(l);others.push(bq(g,lo,hi,-ext(i,'a'),g.L+ext(i,'b')));});
+ E.rects.forEach((r,i)=>{if(!(it.t==='r'&&it.i===it.i&&i===it.i))others.push(rectPoly(r));});E.circs.forEach((r,i)=>{if(!(it.t==='c'&&i===it.i))others.push(circPoly(r));});
+ const hx=Math.max(...own.map(p=>Math.abs(p[0]-me.x))),hy=Math.max(...own.map(p=>Math.abs(p[1]-me.y)));
+ const out=[];DIRS.forEach(([dx,dy],k)=>{let ba=null;
+  for(const f of [0,-.9,.9,-.45,.45]){const ox=me.x+(dx===0?f*hx:0),oy=me.y+(dy===0?f*hy:0),ex=Math.max(0,...hitsT(own,ox,oy,dx,dy));let best=null;
+   others.forEach(pl=>hitsT(pl,ox,oy,dx,dy).forEach(t=>{const d=t-ex;if(d>=-1e-6&&(best==null||d<best))best=Math.max(0,d);}));
+   if(best!=null&&(ba==null||best<ba.d))ba={d:best,ax:ox+dx*ex,ay:oy+dy*ex,bx:ox+dx*(ex+best),by:oy+dy*(ex+best)};}
+  if(ba)out.push(Object.assign({k},ba));});return out;}
+function setDist(k,v){if(!sel||!(v>=0))return;const d=dists(sel).find(o=>o.k===k);if(!d)return;push();const me=sel.t==='r'?E.rects[sel.i]:E.circs[sel.i],dl=d.d-v,[dx,dy]=DIRS[k];me.x=R1(me.x+dx*dl);me.y=R1(me.y+dy*dl);chg();}
 function opText(o){return o.txt||(o.kind+' '+R1(o.w));}
 function opGeom(o){const l=E.lines[o.l],g=lg(l);const d=Math.max(0,Math.min(o.d,g.L-1)),w=Math.min(o.w,g.L-d);return{g,p0:{x:g.A.x+g.ux*d,y:g.A.y+g.uy*d},p1:{x:g.A.x+g.ux*(d+w),y:g.A.y+g.uy*(d+w)},d,w};}
 function gc(){const used=new Set();E.lines.forEach(l=>{used.add(l.a);used.add(l.b);});const map={};const np=[];E.pts.forEach((p,i)=>{if(used.has(i)){map[i]=np.length;np.push(p);}});E.lines.forEach(l=>{l.a=map[l.a];l.b=map[l.b];});E.pts=np;}
@@ -870,13 +892,14 @@ function draw(){const svg=$('esvg'),r=svg.getBoundingClientRect();if(!r.width)re
   if(isS('l',i)){const ax=X(g.A.x+g.ux*g.L*.6),ay=Y(g.A.y+g.uy*g.L*.6),dx=g.ux,dy=-g.uy;s+=`<polygon points="${ax+dx*9},${ay+dy*9} ${ax-dx*5-dy*6},${ay-dy*5+dx*6} ${ax-dx*5+dy*6},${ay-dy*5-dx*6}" fill="#1f6feb"/>`;}
   const mx=(g.A.x+g.B.x)/2,my=(g.A.y+g.B.y)/2,sd=side(g,mx,my,c),off=Math.max(bw,10)+10;
   q+=qbox('L'+i,X(mx)+sd.sx*off,Y(my)+sd.sy*off,R1(g.L),'#1f6feb');});
- const rot=(x,y,a)=>({x:x*Math.cos(a)-y*Math.sin(a),y:x*Math.sin(a)+y*Math.cos(a)});
+ const rot=rotp;
  E.rects.forEach((r,i)=>{const a=(r.rot||0)*Math.PI/180,pp=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a1,b1])=>{const p=rot(a1*r.w/2,b1*r.d/2,a);return X(r.x+p.x)+','+Y(r.y+p.y);});
   s+=`<polygon points="${pp.join(' ')}" fill="#e8eefb" fill-opacity=".8" stroke="${isS('r',i)?'#1f6feb':'#44546a'}" stroke-width="${isS('r',i)?2:1.3}"/>`;
   if(r.txt)s+=`<text x="${X(r.x)}" y="${Y(r.y)+4}" text-anchor="middle" font-size="12" fill="#1d2433">${esc(r.txt)}</text>`;});
  E.circs.forEach((r,i)=>{s+=`<circle cx="${X(r.x)}" cy="${Y(r.y)}" r="${r.d/2*V.k}" fill="#e8eefb" fill-opacity=".8" stroke="${isS('c',i)?'#1f6feb':'#44546a'}" stroke-width="${isS('c',i)?2:1.3}"/>`;
   if(r.txt)s+=`<text x="${X(r.x)}" y="${Y(r.y)+4}" text-anchor="middle" font-size="12" fill="#1d2433">${esc(r.txt)}</text>`;});
  E.pts.forEach((p,i)=>{s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${isS('p',i)?5:3}" fill="${isS('p',i)?'#1f6feb':'#fff'}" stroke="#1d2433"/>`;});
+ dists(sel).forEach(o=>{s+=`<line x1="${X(o.ax)}" y1="${Y(o.ay)}" x2="${X(o.bx)}" y2="${Y(o.by)}" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${X(o.ax)}" cy="${Y(o.ay)}" r="2.5" fill="#0f766e"/><circle cx="${X(o.bx)}" cy="${Y(o.by)}" r="2.5" fill="#0f766e"/>`;q+=qbox('P'+o.k,(X(o.ax)+X(o.bx))/2,(Y(o.ay)+Y(o.by))/2,R1(o.d),'#0f766e');});
  angs().forEach(a=>{const p=P(a.v),d=34;q+=qbox(`A${a.v}_${a.i}_${a.j}`,X(p.x)+Math.cos(a.mid)*d,Y(p.y)-Math.sin(a.mid)*d,R1(a.g)+'°','#b45309');});
  if(pend)s+=`<circle cx="${X(pend.x)}" cy="${Y(pend.y)}" r="5" fill="#1f6feb"/>`;
  if(mouse&&['line','rect','circ'].includes(tool)){const m=sp(mouse.px,mouse.py,mouse.sh);
@@ -934,12 +957,12 @@ function doDrag(d,px,py){if(!d.undo){push();d.undo=true;}const h=d.h;
  else if(h.t==='l'){const l=E.lines[h.i],dx=Math.round(wx(px)-d.x0),dy=Math.round(wy(py)-d.y0);P(l.a).x=d.a.x+dx;P(l.a).y=d.a.y+dy;P(l.b).x=d.b.x+dx;P(l.b).y=d.b.y+dy;}
  draw();props();}
 function click(px,py,sh){
- if(tool==='select'){sel=hit(px,py);props();draw();return;}
+ if(tool==='select'||tool==='sel'){sel=hit(px,py);props();draw();return;}
  if(tool==='del'){del(hit(px,py));return;}
  if(tool==='line'){const p=sp(px,py,sh);
   if(!pend){pend=p;hint();draw();return;}
   if(Math.hypot(p.x-pend.x,p.y-pend.y)<1)return;
-  push();const a=pend.idx!=null?pend.idx:addPt(pend),b=p.idx!=null?p.idx:addPt(p);E.lines.push({a,b,h:0,s:E.sd||'c'});sel={t:'l',i:E.lines.length-1};pend=null;hint();chg();return;}
+  push();const a=pend.idx!=null?pend.idx:addPt(pend),b=p.idx!=null?p.idx:addPt(p);E.lines.push({a,b,h:0,s:E.sd||'l'});sel={t:'l',i:E.lines.length-1};pend=null;hint();chg();return;}
  if(tool==='rect'){const p=sp(px,py,sh);push();E.rects.push({x:p.x,y:p.y,w:RP.w,d:RP.d,h:RP.h,z:RP.z,rot:0,txt:RP.txt});sel={t:'r',i:E.rects.length-1};chg();return;}
  if(tool==='circ'){const p=sp(px,py,sh);push();E.circs.push({x:p.x,y:p.y,d:CP.d,h:CP.h,z:CP.z,txt:CP.txt});sel={t:'c',i:E.circs.length-1};chg();return;}
  if(tool==='op'){let best=null,bd=14;E.lines.forEach((l,i)=>{const g=lg(l),d=dseg(px,py,X(g.A.x),Y(g.A.y),X(g.B.x),Y(g.B.y));if(d<bd){bd=d;best=i;}});
@@ -950,6 +973,7 @@ function ask(key){let val='';const m=key[0];
  if(m==='L')val=R1(lg(E.lines[+key.slice(1)]).L);
  else if(m==='A'){const[v,i,j]=key.slice(1).split('_').map(Number);const a=angs().find(a=>a.v===v&&a.i===i&&a.j===j);if(!a)return;val=R1(a.g);}
  else if(m==='W')val=E.ops[+key.slice(1)].w;
+ else if(m==='P'){const o=dists(sel).find(o=>o.k===+key.slice(1));if(!o)return;val=R1(o.d);}
  else if(m==='X')val=opText(E.ops[+key.slice(1)]);
  const el=$('esvg').querySelector(`[data-q="${key}"]`);if(!el)return;
  const r=el.getBoundingClientRect(),w=$('edw').getBoundingClientRect(),i=$('edin');
@@ -960,18 +984,19 @@ const num=v=>parseFloat(String(v).replace(',','.'));
 function applyQ(key,v){const m=key[0];
  if(m==='L')setLen(+key.slice(1),num(v));
  else if(m==='A'){const[a,i,j]=key.slice(1).split('_').map(Number);setAng(a,i,j,num(v));}
+ else if(m==='P')setDist(+key.slice(1),num(v));
  else if(m==='W'){const n=num(v);if(n>0){push();E.ops[+key.slice(1)].w=n;chg();}}
  else if(m==='X'){push();const o=E.ops[+key.slice(1)];o.txt=(v===(o.kind+' '+R1(o.w)))?'':v;chg();}}
 /* ---------- pannello laterale ---------- */
 function fld(lab,attr,val,type){return `<div><small>${lab}</small><input ${attr} type="${type||'number'}" value="${esc(val==null?'':val)}"></div>`;}
 const SIDES={l:'Sinistra della linea',c:'Centrato sulla linea',r:'Destra della linea'};
 function sideSel(attr,v){return `<select ${attr}>${Object.keys(SIDES).map(k=>`<option value="${k}"${k===v?' selected':''}>${SIDES[k]}</option>`).join('')}</select>`;}
-function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('Altezza muri (mm)','data-g="H"',E.H)}${fld('Spessore muri (mm)','data-g="T"',E.T)}</div><small>Spessore delle nuove linee</small>${sideSel('id="edside"',E.sd||'c')}<button id="edsall" style="width:100%;margin-bottom:4px">Applica a tutte le linee</button>`;
- if(tool==='rect')h+=`<h4>Nuovo rettangolo</h4><div class="row">${fld('Larghezza','data-n="rw"',RP.w)}${fld('Profondità','data-n="rd"',RP.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-n="rh"',RP.h)}${fld('Da terra','data-n="rz"',RP.z)}</div>${fld('Testo','data-n="rt"',RP.txt,'text')}<small>Clicca nel foglio per metterlo (il centro va sul punto cliccato o agganciato).</small>`;
- if(tool==='circ')h+=`<h4>Nuovo cerchio</h4><div class="row">${fld('Diametro','data-n="cd"',CP.d)}${fld('Altezza (0 = muri)','data-n="ch"',CP.h)}</div><div class="row">${fld('Da terra','data-n="cz"',CP.z)}${fld('Testo','data-n="ct"',CP.txt,'text')}</div><small>Nel DXF il cerchio è fatto di poligono a 12 lati.</small>`;
+function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('Altezza muri (mm)','data-g="H"',E.H)}${fld('Spessore muri (mm)','data-g="T"',E.T)}</div><small>Spessore delle nuove linee</small>${sideSel('id="edside"',E.sd||'l')}<button id="edsall" style="width:100%;margin-bottom:4px">Applica a tutte le linee</button>`;
+ if(tool==='rect')h+=`<h4>Nuovo rettangolo</h4><div class="row">${fld('Larghezza','data-n="rw"',RP.w)}${fld('Profondità','data-n="rd"',RP.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-n="rh"',RP.h)}${fld('Da terra','data-n="rz"',RP.z)}</div>${fld('Testo','data-n="rt"',RP.txt,'text')}<small>Clicca nel foglio per metterlo. Selezionato, mostra le distanze dagli altri elementi (muri, forme): cliccale e scrivi la quota per riposizionarlo.</small>`;
+ if(tool==='circ')h+=`<h4>Nuovo cerchio</h4><div class="row">${fld('Diametro','data-n="cd"',CP.d)}${fld('Altezza (0 = muri)','data-n="ch"',CP.h)}</div><div class="row">${fld('Da terra','data-n="cz"',CP.z)}${fld('Testo','data-n="ct"',CP.txt,'text')}</div><small>Clic nel foglio per metterlo. Selezionato, mostra le distanze dagli altri elementi: cliccale per riposizionarlo.</small>`;
  if(tool==='op')h+=`<h4>Nuova apertura</h4><small>Tipo</small><select id="edkind">${Object.keys(KINDS).map(k=>`<option${k===kind?' selected':''}>${k}</option>`).join('')}</select><small>Clicca su una linea per metterla. Poi cambi larghezza (riquadro arancione), testo e posizione.</small>`;
  if(sel){const s=sel;h+=`<h4>Selezionato</h4>`;
-  if(s.t==='l'){const l=E.lines[s.i];h+=`<div class="row">${fld('Lunghezza','data-s="llen"',R1(lg(l).L))}${fld('Altezza (0 = muri)','data-s="lh"',l.h||0)}</div><small>Lo spessore va su questo lato (guardando dal 1° al 2° punto, come la freccia blu). La linea disegnata è il bordo di riferimento delle quote.</small>${sideSel('data-s="ls"',l.s||'c')}`;}
+  if(s.t==='l'){const l=E.lines[s.i];h+=`<div class="row">${fld('Lunghezza','data-s="llen"',R1(lg(l).L))}${fld('Altezza (0 = muri)','data-s="lh"',l.h||0)}</div><small>Lo spessore va su questo lato (guardando dal 1° al 2° punto, come la freccia blu). La linea disegnata è il bordo di riferimento delle quote.</small>${sideSel('data-s="ls"',l.s||'l')}`;}
   else if(s.t==='r'){const r=E.rects[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Larghezza','data-s="w"',r.w)}${fld('Profondità','data-s="d"',r.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-s="h"',r.h)}${fld('Da terra','data-s="z"',r.z)}</div>${fld('Rotazione °','data-s="rot"',r.rot||0)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='c'){const r=E.circs[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Diametro','data-s="d"',r.d)}${fld('Altezza (0 = muri)','data-s="h"',r.h)}</div>${fld('Da terra','data-s="z"',r.z)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='o'){const o=E.ops[s.i];h+=`<small>Tipo</small><select data-s="kind">${Object.keys(KINDS).map(k=>`<option${k===o.kind?' selected':''}>${k}</option>`).join('')}</select><div class="row">${fld('Larghezza','data-s="w"',o.w)}${fld('Dall\'inizio linea','data-s="d"',R1(o.d))}</div><div class="row">${fld('Da terra','data-s="z"',o.z)}${fld('Altezza (0 = fino al soffitto)','data-s="h"',o.h)}</div>${fld('Testo (vuoto = automatico)','data-s="txt"',o.txt,'text')}`;}
@@ -1000,7 +1025,7 @@ function dxf(){const out=['0\nSECTION\n2\nENTITIES'];let n=0;const f=v=>Math.rou
   slab(s,g.L+eb,0,HL);});
  const rt=(x,y,a,w,d)=>{const c=Math.cos(a),s=Math.sin(a);return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([p,q])=>[x+p*w/2*c-q*d/2*s,y+p*w/2*s+q*d/2*c]);};
  E.rects.forEach(r=>{const h=r.h>0?r.h:E.H;prism(rt(r.x,r.y,(r.rot||0)*Math.PI/180,r.w,r.d),r.z||0,(r.z||0)+h,'OGGETTI');txt(r.x,r.y,r.txt,80,'TESTI');});
- E.circs.forEach(r=>{const h=r.h>0?r.h:E.H,s=r.d/Math.SQRT2;for(const a of [0,30,60])prism(rt(r.x,r.y,a*Math.PI/180,s,s),r.z||0,(r.z||0)+h,'OGGETTI');txt(r.x,r.y,r.txt,80,'TESTI');});
+ E.circs.forEach(r=>{const h=r.h>0?r.h:E.H;out.push(`0\nCIRCLE\n8\nOGGETTI\n10\n${f(r.x)}\n20\n${f(r.y)}\n30\n${f(r.z||0)}\n40\n${f(r.d/2)}\n39\n${f(h)}`);n++;txt(r.x,r.y,r.txt,80,'TESTI');});
  out.push('0\nENDSEC\n0\nEOF');return{text:out.join('\r\n')+'\r\n',n};}
 const fname=()=>(E.name||'Piantina').replace(/[\\/:*?"<>|]+/g,'_');
 async function dl(name,txt,type){const ext=name.slice(name.lastIndexOf('.'));
@@ -1011,7 +1036,7 @@ function fit(){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const add=(x,y)=>{x0=Math.min(x
  E.pts.forEach(p=>add(p.x,p.y));E.rects.forEach(r=>{const m=Math.hypot(r.w,r.d)/2;add(r.x-m,r.y-m);add(r.x+m,r.y+m);});E.circs.forEach(r=>{add(r.x-r.d/2,r.y-r.d/2);add(r.x+r.d/2,r.y+r.d/2);});
  const r=$('esvg').getBoundingClientRect();W=r.width;HH=r.height;
  if(x0>x1){V={cx:2000,cy:1500,k:Math.min(W,HH)/6000};}else{const w=Math.max(x1-x0,500),h=Math.max(y1-y0,500);V={cx:(x0+x1)/2,cy:(y0+y1)/2,k:Math.min((W-160)/w,(HH-160)/h)};}draw();}
-function hint(){const t={select:'Sposta: clicca un elemento per selezionarlo, trascinalo per spostarlo. Trascina il vuoto per spostare il foglio.',line:pend?'Clicca il secondo punto (Esc annulla). Tieni Maiusc per bloccare orizzontale/verticale.':'Linea: clicca il primo punto, poi il secondo. Riquadro blu = lunghezza, riquadro arancione = angolo: clicca per scrivere il valore.',rect:'Rettangolo: imposta le misure a destra e clicca dove metterlo.',circ:'Cerchio: imposta il diametro a destra e clicca dove metterlo.',op:'Apertura: clicca su una linea dove va la porta/finestra.',del:'Elimina: clicca una linea, un punto, un\'apertura o una forma.'}[tool];$('edhint').textContent=t;
+function hint(){const t={sel:'Seleziona: clicca una linea, un punto, un\'apertura o una forma per vedere e cambiare i suoi campi.',select:'Sposta: clicca un elemento per selezionarlo, trascinalo per spostarlo. Trascina il vuoto per spostare il foglio.',line:pend?'Clicca il secondo punto (Esc annulla). Tieni Maiusc per bloccare orizzontale/verticale.':'Linea: clicca il primo punto, poi il secondo. Riquadro blu = lunghezza, riquadro arancione = angolo: clicca per scrivere il valore.',rect:'Rettangolo: imposta le misure a destra e clicca dove metterlo.',circ:'Cerchio: imposta il diametro a destra e clicca dove metterlo.',op:'Apertura: clicca su una linea dove va la porta/finestra.',del:'Elimina: clicca una linea, un punto, un\'apertura o una forma.'}[tool];$('edhint').textContent=t;
  document.querySelectorAll('#ed [data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===tool));}
 function setTool(t){tool=t;pend=null;hint();props();draw();}
 function load(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(o&&o.v===1&&Array.isArray(o.lines))E=o;}}catch(x){}}
@@ -1023,7 +1048,7 @@ function bindOnce(){if(bound)return;bound=true;bind();
  $('ednm').onchange=e=>{E.name=e.target.value.trim()||'Piantina';save();};
  $('edfit').onclick=fit;$('edzi').onclick=()=>{V.k=Math.min(6,V.k*1.3);draw();};$('edzo').onclick=()=>{V.k=Math.max(.004,V.k/1.3);draw();};
  $('edun').onclick=undo;
- $('ednew').onclick=()=>{if(!vuoto()&&!confirm('Svuotare il foglio? Il disegno attuale va perso (se non l\'hai salvato).'))return;push();E=nuovo();sel=null;pend=null;chg();fit();$('ednm').value=E.name;};
+ $('ednew').onclick=()=>{if(!E.pts.length&&!E.rects.length&&!E.circs.length)return;if(!confirm('Cancellare tutti gli elementi inseriti nel disegno?'))return;push();E=Object.assign(nuovo(),{name:E.name,H:E.H,T:E.T,sd:E.sd});sel=null;pend=null;chg();};
  $('edclose').onclick=()=>{askEnd(false);save();$('ed').style.display='none';};
  $('edsf').onclick=()=>dl(fname()+'.editor.json',JSON.stringify(E),'application/json');
  $('edof').onclick=()=>$('edfile').click();
@@ -1032,7 +1057,7 @@ function bindOnce(){if(bound)return;bound=true;bind();
  $('edus').onclick=()=>{if(vuoto()){alert('Disegna almeno una linea.');return;}askEnd(false);save();const d=dxf();$('ed').style.display='none';importDxf(new File([d.text],fname()+'.dxf',{type:'application/dxf'}));};
  const inp=$('edin');inp.onkeydown=e=>{if(e.key==='Enter')askEnd(true);else if(e.key==='Escape')askEnd(false);e.stopPropagation();};inp.onblur=()=>askEnd(true);
  $('edp').addEventListener('change',e=>{const el=e.target;if(el.id==='edkind'){kind=el.value;return;}if(el.id==='edside'){push();E.sd=el.value;chg();return;}if(el.dataset&&(el.dataset.g||el.dataset.n||el.dataset.s))onField(el);});
- $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'c');chg();}});
+ $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'l');chg();}});
  addEventListener('resize',()=>{if(isOpen())draw();});
  addEventListener('keydown',e=>{if(!isOpen())return;if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
   if(e.key==='Escape'){if(pend){pend=null;hint();draw();}else if(sel){sel=null;props();draw();}}
