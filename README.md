@@ -27,9 +27,10 @@ Ogni campo dell'intestazione, e il logo, ha un menù per scegliere l'angolo del 
 
 Il tasto **Editor DXF** (accanto a «Importa DXF») apre un foglio in mm dove disegnare una piantina personalizzata senza Metron.
 
-- **Linea**: clicca primo e secondo punto (resta attiva per la linea dopo). Il riquadro blu accanto a ogni linea mostra la lunghezza: cliccalo e scrivi la quota, la linea si aggiorna. **Aggancio** attacca il punto a un vertice esistente (cerchio verde); **Orto** (o tasto Maiusc) blocca orizzontale/verticale.
+- **Linea**: clicca primo e secondo punto (resta attiva per la linea dopo). Il riquadro blu accanto a ogni linea mostra la lunghezza: cliccalo e scrivi la quota, la linea si aggiorna. **Aggancio punti** attacca il punto a un vertice esistente (cerchio verde); **Griglia** aggancia ai nodi della griglia (quadratino verde), entrambi disattivabili; **Orto** (o tasto Maiusc) blocca orizzontale/verticale.
+- **Spessore**: per ogni linea scegli se va a sinistra, al centro o a destra (guardando dal 1° al 2° punto, come la freccia blu). La linea disegnata è il bordo di riferimento delle quote; "Applica a tutte" imposta lo stesso verso a tutto il disegno.
 - **Angoli**: dove due linee condividono un vertice compare un riquadro arancione con i °; scrivendo il valore ruota la linea disegnata dopo.
 - **Rettangolo / Cerchio**: misure, altezza, quota da terra e testo a destra, poi clic nel foglio (es. una colonna).
 - **Apertura** (porta/finestra/altro): clic su una linea. Due trattini perpendicolari, larghezza quotabile, testo accanto, posizione, altezza da terra e altezza apertura nel pannello. Nel DXF il muro si interrompe (con architrave e sottofinestra).
 - **Sposta / Elimina**, rotellina = zoom, trascina il vuoto = sposta il foglio, Ctrl+Z annulla. Altezza e spessore dei muri sono modificabili (2700 e 100 mm di partenza).
-- **Salva DXF** scarica il file; **Usa nel programma** lo passa subito al selettore pareti; **Salva file / Apri file** conservano il disegno modificabile (.editor.json). Il disegno viene anche salvato da solo nel browser.
+- **Salva DXF** e **Salva file** chiedono dove salvare (Chrome/Edge; altrimenti vanno in Download); **Usa nel programma** lo passa subito al selettore pareti; **Salva file / Apri file** conservano il disegno modificabile (.editor.json). Il disegno viene anche salvato da solo nel browser.
