@@ -159,13 +159,18 @@ function workerMain(){
   const aa=(b[3]-b[0])*(b[4]-b[1]);if(!(aa>0)||r.ar>=aa*0.985)return 0;
   const q=[];for(const [u,v] of [[r.u0,r.v0],[r.u1,r.v0],[r.u1,r.v1],[r.u0,r.v1]])q.push(Math.round((r.a[0]+u*r.ux-v*r.uy)*10)/10,Math.round((r.a[1]+u*r.uy+v*r.ux)*10)/10);
   return q;}
+ /* quadrilatero esatto (anche trapezio) dei file dell'editor: antiorario; 0 se è un rettangolo orizzontale/verticale */
+ function exactQuad(pts,b){
+  let A=0;for(let i=0;i<4;i++){const p=pts[i],q=pts[(i+1)%4];A+=p[0]*q[1]-q[0]*p[1];}
+  if(Math.abs(A)<1)return 0;const aa=(b[3]-b[0])*(b[4]-b[1]);if(Math.abs(A)/2>=aa*0.999)return 0;
+  const P=A<0?pts.slice().reverse():pts;const q=[];for(const p of P)q.push(Math.round(p[0]*10)/10,Math.round(p[1]*10)/10);return q;}
  onmessage=async ev=>{
   const file=ev.data;
   try{
    const rd=file.stream().getReader(),dec=new TextDecoder('utf-8'),total=file.size||1;
    let got=0,carry='',have=false,code=0,lastPost=0,nlines=0;
    const out=[],skipped={},cnt={S:0,P:0};
-   let inEnt=false,secWait=false,cur=null,sat=null,bb=null,bp=null,poly=null,vx=0,vy=0,vz=0,vf=0,ci=null;
+   let inEnt=false,secWait=false,cur=null,sat=null,bb=null,bp=null,poly=null,vx=0,vy=0,vz=0,vf=0,ci=null,lay='';
    const xs=[0,0,0,0],ys=[0,0,0,0];
    const fresh=()=>[Infinity,Infinity,Infinity,-Infinity,-Infinity,-Infinity];
    const ext=(b,x,y,z)=>{if(x<b[0])b[0]=x;if(y<b[1])b[1]=y;if(z<b[2])b[2]=z;if(x>b[3])b[3]=x;if(y>b[4])b[4]=y;if(z>b[5])b[5]=z;};
@@ -174,7 +179,7 @@ function workerMain(){
     if(cur==='3DSOLID'){const p=sat&&sat.length?solidPts(sat):null;if(p){const b=fresh();for(const q of p)ext(b,q[0],q[1],q[2]);push(b,'S',obbQuad(p,b));}sat=null;}
     else if(cur==='POLYLINE'){if(poly)poly.pf=(poly.flags&64)!==0;}
     else if(cur==='VERTEX'){if(poly&&(!poly.pf||(vf&64))){ext(poly.bb,vx,vy,vz);poly.pts.push([vx,vy]);}}
-    else if(cur==='MESH'||cur==='3DFACE'){push(bb,'P',obbQuad(bp,bb));bb=null;bp=null;}
+    else if(cur==='MESH'||cur==='3DFACE'){push(bb,'P',(cur==='3DFACE'&&lay.indexOf('EDITOR')===0&&bp.length===4)?exactQuad(bp,bb):obbQuad(bp,bb));bb=null;bp=null;}
     else if(cur==='CIRCLE'){if(ci&&ci.r>0&&ci.th>0&&isFinite(ci.x+ci.y+ci.z)){const b=[ci.x-ci.r,ci.y-ci.r,ci.z,ci.x+ci.r,ci.y+ci.r,ci.z+ci.th];push(b,'P',0,1);}ci=null;}
     cur=null;}
    function endPoly(){if(poly){push(poly.bb,'P',obbQuad(poly.pts,poly.bb));poly=null;}}
@@ -183,7 +188,7 @@ function workerMain(){
     else if(t==='VERTEX'){vx=vy=vz=0;vf=0;cur='VERTEX';}
     else if(t==='SEQEND'){endPoly();cur=null;}
     else if(t==='3DSOLID'){cur=t;sat=[];}
-    else if(t==='MESH'||t==='3DFACE'){cur=t;bb=fresh();bp=[];}
+    else if(t==='MESH'||t==='3DFACE'){cur=t;bb=fresh();bp=[];lay='';}
     else if(t==='CIRCLE'){cur=t;ci={x:0,y:0,z:0,r:0,th:0};}
     else{cur=null;skipped[t]=(skipped[t]||0)+1;}}
    function handle(c,v){
@@ -197,6 +202,7 @@ function workerMain(){
     else if(cur==='POLYLINE'){if(c===70&&poly)poly.flags=parseInt(v,10)||0;}
     else if(cur==='CIRCLE'){const n=parseFloat(v);if(c===10)ci.x=n;else if(c===20)ci.y=n;else if(c===30)ci.z=n;else if(c===40)ci.r=n;else if(c===39)ci.th=n;}
     else if(cur==='MESH'||cur==='3DFACE'){
+     if(c===8){lay=v.trim();return;}
      if(c>=10&&c<=13)xs[c-10]=parseFloat(v);else if(c>=20&&c<=23)ys[c-20]=parseFloat(v);
      else if(c>=30&&c<=33){const z=parseFloat(v),i=c-30;if(cur==='MESH'&&i!==0)return;ext(bb,xs[i],ys[i],z);bp.push([xs[i],ys[i]]);}}}
    function run(lines){
@@ -757,7 +763,7 @@ function pkDraw(){
  sv.style.cursor=pk.add?'crosshair':'';
  sv.innerHTML=s;sv.setAttribute('viewBox',pk.vb.join(' '));pkOv();$('padd').classList.toggle('pri',!!pk.add);$('padd').textContent=pk.add?(pk.p1?'Clicca il 2° punto':'Clicca il 1° punto'):'＋ Parete';$('pcount').textContent=pk.on.size+(pk.on.size===1?' parete scelta':' pareti scelte');}
 function pkPts(){if(pk.pts)return pk.pts;const m=new Map();
- for(const p of pk.pcs)for(const c of cornersA(p)){const x=Math.round(c[0]),y=Math.round(c[1]);m.set(x+','+y,[x,y]);}
+ for(const p of pk.pcs)for(const c of (p[8]?[[(p[0]+p[3])/2,p[1]],[p[3],(p[1]+p[4])/2],[(p[0]+p[3])/2,p[4]],[p[0],(p[1]+p[4])/2]]:cornersA(p))){const x=Math.round(c[0]),y=Math.round(c[1]);m.set(x+','+y,[x,y]);}
  pk.pts=[...m.values()];pk.dots=pk.pts.map(q=>'M'+q[0]+' '+(-q[1])+'h0').join('');return pk.pts;}
 function pkOv(){const g=$('pov');if(!g||!pk)return;const k=1/$('psvg').getScreenCTM().a;let s='';
  const X=x=>x.toFixed(1),Y=y=>(-y).toFixed(1);
@@ -829,8 +835,20 @@ function chg(noSave){if(!noSave||1)save();draw();props();}
 function lg(l){const A=P(l.a),B=P(l.b),dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1e-9;return{A,B,L,ux:dx/L,uy:dy/L,nx:-dy/L,ny:dx/L};}
 function cen(){let sx=0,sy=0,n=0;E.pts.forEach(p=>{sx+=p.x;sy+=p.y;n++;});E.rects.concat(E.circs).forEach(r=>{sx+=r.x;sy+=r.y;n++;});return n?{x:sx/n,y:sy/n}:{x:0,y:0};}
 function sideOff(l){const T=E.T,s=l.s||'l';return s==='l'?[0,T]:s==='r'?[-T,0]:[-T/2,T/2];}
-function ext(i,end){const l=E.lines[i],g=lg(l),v=end==='a'?l.a:l.b,ox=end==='a'?-g.ux:g.ux,oy=end==='a'?-g.uy:g.uy;let e=0;
- E.lines.forEach((m,j)=>{if(j===i||(m.a!==v&&m.b!==v))return;const gm=lg(m);sideOff(m).forEach(o=>{e=Math.max(e,gm.nx*o*ox+gm.ny*o*oy);});});return e;}
+/* punto d'angolo del bordo a offset «o» della linea i nell'estremo end: dove ci sono due linee si usa l'intersezione dei bordi (offset della catena), altrimenti la perpendicolare */
+function cornerPt(i,end,o){const l=E.lines[i],g=lg(l),v=end==='a'?l.a:l.b,V0=P(v),base={x:V0.x+g.nx*o,y:V0.y+g.ny*o};
+ const ot=[];E.lines.forEach((m,j)=>{if(j!==i&&(m.a===v||m.b===v))ot.push(j);});if(ot.length!==1)return base;
+ const m=E.lines[ot[0]],gm=lg(m),di={x:end==='a'?g.ux:-g.ux,y:end==='a'?g.uy:-g.uy},dj={x:m.a===v?gm.ux:-gm.ux,y:m.a===v?gm.uy:-gm.uy},w={x:di.x+dj.x,y:di.y+dj.y};
+ if(Math.hypot(w.x,w.y)<1e-6)return base;
+ const si=Math.sign(g.nx*w.x+g.ny*w.y)||1,sj=Math.sign(gm.nx*w.x+gm.ny*w.y)||1,oi=sideOff(l),oj=sideOff(m);
+ const ri=oi.slice().sort((p,q)=>p*si-q*si),rj=oj.slice().sort((p,q)=>p*sj-q*sj),o2=rj[ri.indexOf(o)];
+ const det=g.nx*gm.ny-g.ny*gm.nx;if(Math.abs(det)<1e-6)return base;
+ const px=(o*gm.ny-o2*g.ny)/det,py=(g.nx*o2-gm.nx*o)/det;
+ if(Math.hypot(px,py)>6*Math.max(Math.abs(oi[0]),Math.abs(oi[1]),Math.abs(oj[0]),Math.abs(oj[1]),1))return base;
+ return{x:V0.x+px,y:V0.y+py};}
+function bandSpan(i,s0,s1){const l=E.lines[i],g=lg(l),[lo,hi]=sideOff(l);
+ const pt=(sx,o)=>sx<=1e-6?cornerPt(i,'a',o):sx>=g.L-1e-6?cornerPt(i,'b',o):{x:g.A.x+g.ux*sx+g.nx*o,y:g.A.y+g.uy*sx+g.ny*o};
+ return[pt(s0,lo),pt(s1,lo),pt(s1,hi),pt(s0,hi)].map(p=>[p.x,p.y]);}
 function bq(g,lo,hi,s0,s1){const a={x:g.A.x+g.ux*s0,y:g.A.y+g.uy*s0},b={x:g.A.x+g.ux*s1,y:g.A.y+g.uy*s1};return[[a.x+g.nx*lo,a.y+g.ny*lo],[b.x+g.nx*lo,b.y+g.ny*lo],[b.x+g.nx*hi,b.y+g.ny*hi],[a.x+g.nx*hi,a.y+g.ny*hi]];}
 const rotp=(x,y,a)=>({x:x*Math.cos(a)-y*Math.sin(a),y:x*Math.sin(a)+y*Math.cos(a)});
 function rectPoly(r){const a=(r.rot||0)*Math.PI/180;return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([p,q])=>{const o=rotp(p*r.w/2,q*r.d/2,a);return[r.x+o.x,r.y+o.y];});}
@@ -841,7 +859,7 @@ function hitsT(poly,ox,oy,dx,dy){const o=[];for(let i=0;i<poly.length;i++){const
  if(dx!==0){if(p[1]!==q[1]&&(p[1]-oy)*(q[1]-oy)<=0){const x=p[0]+(oy-p[1])*(q[0]-p[0])/(q[1]-p[1]);o.push((x-ox)*dx);}}
  else{if(p[0]!==q[0]&&(p[0]-ox)*(q[0]-ox)<=0){const y=p[1]+(ox-p[0])*(q[1]-p[1])/(q[0]-p[0]);o.push((y-oy)*dy);}}}return o;}
 function dists(it){if(!it||(it.t!=='r'&&it.t!=='c'))return[];const me=it.t==='r'?E.rects[it.i]:E.circs[it.i],own=it.t==='r'?rectPoly(me):circPoly(me);
- const others=[];E.lines.forEach((l,i)=>{const g=lg(l),[lo,hi]=sideOff(l);others.push(bq(g,lo,hi,-ext(i,'a'),g.L+ext(i,'b')));});
+ const others=[];E.lines.forEach((l,i)=>{const g=lg(l),[lo,hi]=sideOff(l);others.push(bandSpan(i,0,g.L));});
  E.rects.forEach((r,i)=>{if(!(it.t==='r'&&it.i===it.i&&i===it.i))others.push(rectPoly(r));});E.circs.forEach((r,i)=>{if(!(it.t==='c'&&i===it.i))others.push(circPoly(r));});
  const hx=Math.max(...own.map(p=>Math.abs(p[0]-me.x))),hy=Math.max(...own.map(p=>Math.abs(p[1]-me.y)));
  const out=[];DIRS.forEach(([dx,dy],k)=>{let ba=null;
@@ -879,7 +897,7 @@ function grid(){let st=10;for(const s of [10,50,100,500,1000,5000,10000,50000]){
 function draw(){const svg=$('esvg'),r=svg.getBoundingClientRect();if(!r.width)return;W=r.width;HH=r.height;
  const c=cen(),bw=Math.max(2,E.T*V.k);let s=grid();const isS=(t,i)=>sel&&sel.t===t&&sel.i===i;let q='';
  E.lines.forEach((l,i)=>{const g=lg(l);const on=isS('l',i);
-  const[lo,hi]=sideOff(l);s+=`<polygon points="${bq(g,lo,hi,-ext(i,'a'),g.L+ext(i,'b')).map(p=>X(p[0])+','+Y(p[1])).join(' ')}" fill="${on?'#b5d0ff':'#c9d0dc'}"/>`;});
+  const[lo,hi]=sideOff(l);s+=`<polygon points="${bandSpan(i,0,g.L).map(p=>X(p[0])+','+Y(p[1])).join(' ')}" fill="${on?'#b5d0ff':'#c9d0dc'}"/>`;});
  E.ops.forEach((o,i)=>{const og=opGeom(o),on=isS('o',i),g=og.g,[lo,hi]=sideOff(E.lines[o.l]),m1=1.5/V.k;
   s+=`<polygon points="${bq(g,lo-m1,hi+m1,og.d,og.d+og.w).map(p=>X(p[0])+','+Y(p[1])).join(' ')}" fill="#fff"/>`;
   if(o.kind==='Finestra')s+=`<line x1="${X(og.p0.x+g.nx*(lo+hi)/2)}" y1="${Y(og.p0.y+g.ny*(lo+hi)/2)}" x2="${X(og.p1.x+g.nx*(lo+hi)/2)}" y2="${Y(og.p1.y+g.ny*(lo+hi)/2)}" stroke="#d97706" stroke-width="1"/>`;
@@ -1017,12 +1035,12 @@ function onField(el){const d=el.dataset,v=el.type==='text'?el.value:num(el.value
 function dxf(){const out=['0\nSECTION\n2\nENTITIES'];let n=0;const f=v=>Math.round(v*1000)/1000;
  const prism=(c,z0,z1,layer)=>{if(z1-z0<1)return;let s='0\n3DFACE\n8\n'+layer;c.forEach((p,i)=>{s+=`\n${10+i}\n${f(p[0])}\n${20+i}\n${f(p[1])}\n${30+i}\n${f(i<2?z0:z1)}`;});out.push(s);n++;};
  const txt=(x,y,t,h,layer)=>{if(!t)return;out.push(`0\nTEXT\n8\n${layer}\n10\n${f(x)}\n20\n${f(y)}\n30\n0\n40\n${h}\n1\n${String(t).replace(/[\r\n]+/g,' ')}`);};
- E.lines.forEach((l,i)=>{const g=lg(l),HL=l.h>0?l.h:E.H,ea=ext(i,'a'),eb=ext(i,'b'),[lo,hi]=sideOff(l);
-  const slab=(s0,s1,z0,z1)=>{if(s1-s0<1)return;prism(bq(g,lo,hi,s0,s1),z0,z1,'MURI');};
-  const ops=E.ops.filter(o=>o.l===i).map(o=>({o,og:opGeom(o)})).sort((a,b)=>a.og.d-b.og.d);let s=-ea;
+ E.lines.forEach((l,i)=>{const g=lg(l),HL=l.h>0?l.h:E.H;
+  const slab=(s0,s1,z0,z1)=>{if(s1-s0<1)return;prism(bandSpan(i,s0,s1),z0,z1,'EDITOR_MURI');};
+  const ops=E.ops.filter(o=>o.l===i).map(o=>({o,og:opGeom(o)})).sort((a,b)=>a.og.d-b.og.d);let s=0;
   ops.forEach(({o,og})=>{slab(s,og.d,0,HL);const top=o.h>0?o.z+o.h:HL;if(o.z>0)slab(og.d,og.d+og.w,0,Math.min(o.z,HL));if(top<HL)slab(og.d,og.d+og.w,top,HL);
    const mx=g.A.x+g.ux*(og.d+og.w/2),my=g.A.y+g.uy*(og.d+og.w/2);txt(mx,my,opText(o),80,'TESTI');s=og.d+og.w;});
-  slab(s,g.L+eb,0,HL);});
+  slab(s,g.L,0,HL);});
  const rt=(x,y,a,w,d)=>{const c=Math.cos(a),s=Math.sin(a);return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([p,q])=>[x+p*w/2*c-q*d/2*s,y+p*w/2*s+q*d/2*c]);};
  E.rects.forEach(r=>{const h=r.h>0?r.h:E.H;prism(rt(r.x,r.y,(r.rot||0)*Math.PI/180,r.w,r.d),r.z||0,(r.z||0)+h,'OGGETTI');txt(r.x,r.y,r.txt,80,'TESTI');});
  E.circs.forEach(r=>{const h=r.h>0?r.h:E.H;out.push(`0\nCIRCLE\n8\nOGGETTI\n10\n${f(r.x)}\n20\n${f(r.y)}\n30\n${f(r.z||0)}\n40\n${f(r.d/2)}\n39\n${f(h)}`);n++;txt(r.x,r.y,r.txt,80,'TESTI');});
