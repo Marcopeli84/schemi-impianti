@@ -832,7 +832,10 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(E));}catch(x){}}
 function push(){U.push(JSON.stringify(E));if(U.length>80)U.shift();}
 function undo(){if(!U.length)return;E=JSON.parse(U.pop());sel=null;pend=null;chg(true);}
 function ensureIds(){let m=E.nid||0;E.dims=E.dims||[];const ks=['pts','lines','rects','circs','ops'];ks.forEach(k=>E[k].forEach(o=>{if(o.id>m)m=o.id;}));ks.forEach(k=>E[k].forEach(o=>{if(!o.id)o.id=++m;}));E.nid=m;}
-function chg(noSave){ensureIds();E.dims=E.dims.filter(d=>aXY(d.p1)&&aXY(d.p2));save();draw();props();}
+function weld(tol){let n=0;for(let i=0;i<E.pts.length;i++)for(let j=E.pts.length-1;j>i;j--){const p=E.pts[i],q=E.pts[j];if(Math.hypot(p.x-q.x,p.y-q.y)<=tol){
+  E.lines.forEach(l=>{if(l.a===j)l.a=i;if(l.b===j)l.b=i;});if(q.lk)p.lk=1;E.pts.splice(j,1);E.lines.forEach(l=>{if(l.a>j)l.a--;if(l.b>j)l.b--;});n++;}}
+ if(n){E.lines=E.lines.filter(l=>l.a!==l.b);gc();}return n;}
+function chg(noSave){weld(1);ensureIds();E.dims=E.dims.filter(d=>aXY(d.p1)&&aXY(d.p2));save();draw();props();}
 function flash(t){const h=$('edhint');h.textContent=t;clearTimeout(flt);flt=setTimeout(hint,2200);}
 const LKMSG='Elemento bloccato: sbloccalo con lo strumento Blocca';
 function lg(l){const A=P(l.a),B=P(l.b),dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1e-9;return{A,B,L,ux:dx/L,uy:dy/L,nx:-dy/L,ny:dx/L};}
@@ -857,20 +860,20 @@ const rotp=(x,y,a)=>({x:x*Math.cos(a)-y*Math.sin(a),y:x*Math.sin(a)+y*Math.cos(a
 function rectPoly(r){const a=(r.rot||0)*Math.PI/180;return[[-1,-1],[1,-1],[1,1],[-1,1]].map(([p,q])=>{const o=rotp(p*r.w/2,q*r.d/2,a);return[r.x+o.x,r.y+o.y];});}
 function circPoly(r){const o=[];for(let i=0;i<24;i++){const a=i*Math.PI/12;o.push([r.x+Math.cos(a)*r.d/2,r.y+Math.sin(a)*r.d/2]);}return o;}
 /* distanze libere di un rettangolo/cerchio dagli altri elementi, nelle 4 direzioni */
-const DIRS=[[-1,0],[1,0],[0,1],[0,-1]];
-function hitsT(poly,ox,oy,dx,dy){const o=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length];
- if(dx!==0){if(p[1]!==q[1]&&(p[1]-oy)*(q[1]-oy)<=0){const x=p[0]+(oy-p[1])*(q[0]-p[0])/(q[1]-p[1]);o.push((x-ox)*dx);}}
- else{if(p[0]!==q[0]&&(p[0]-ox)*(q[0]-ox)<=0){const y=p[1]+(ox-p[0])*(q[1]-p[1])/(q[0]-p[0]);o.push((y-oy)*dy);}}}return o;}
+/* parete più vicina a un punto: dà il sistema di riferimento (parallela/perpendicolare) per quote e distanze */
+function wallRef(x,y){let best=null,bd=1e18;E.lines.forEach(l=>{const g=lg(l),d=dseg(x,y,g.A.x,g.A.y,g.B.x,g.B.y);if(d<bd){bd=d;best={id:l.id,ux:g.ux,uy:g.uy,nx:g.nx,ny:g.ny};}});return best;}
+function frameDirs(x,y){const w=wallRef(x,y);if(!w)return[[-1,0],[1,0],[0,1],[0,-1]];return[[-w.ux,-w.uy],[w.ux,w.uy],[w.nx,w.ny],[-w.nx,-w.ny]];}
+function hitsT(poly,ox,oy,dx,dy){const o=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],ex=q[0]-p[0],ey=q[1]-p[1],den=dx*ey-dy*ex;if(Math.abs(den)<1e-9)continue;
+  const wx_=p[0]-ox,wy_=p[1]-oy,t=(wx_*ey-wy_*ex)/den,sg=(wx_*dy-wy_*dx)/den;if(sg>=-1e-9&&sg<=1+1e-9)o.push(t);}return o;}
 function dists(it){if(!it||(it.t!=='r'&&it.t!=='c'))return[];const me=it.t==='r'?E.rects[it.i]:E.circs[it.i],own=it.t==='r'?rectPoly(me):circPoly(me);
- const others=[];E.lines.forEach((l,i)=>{const g=lg(l),[lo,hi]=sideOff(l);others.push(bandSpan(i,0,g.L));});
- E.rects.forEach((r,i)=>{if(!(it.t==='r'&&it.i===it.i&&i===it.i))others.push(rectPoly(r));});E.circs.forEach((r,i)=>{if(!(it.t==='c'&&i===it.i))others.push(circPoly(r));});
- const hx=Math.max(...own.map(p=>Math.abs(p[0]-me.x))),hy=Math.max(...own.map(p=>Math.abs(p[1]-me.y)));
- const out=[];DIRS.forEach(([dx,dy],k)=>{let ba=null;
-  for(const f of [0,-.9,.9,-.45,.45]){const ox=me.x+(dx===0?f*hx:0),oy=me.y+(dy===0?f*hy:0),ex=Math.max(0,...hitsT(own,ox,oy,dx,dy));let best=null;
+ const others=[];E.lines.forEach((l,i)=>{const g=lg(l);others.push(bandSpan(i,0,g.L));});
+ E.rects.forEach((r,i)=>{if(!(it.t==='r'&&i===it.i))others.push(rectPoly(r));});E.circs.forEach((r,i)=>{if(!(it.t==='c'&&i===it.i))others.push(circPoly(r));});
+ const out=[];frameDirs(me.x,me.y).forEach(([dx,dy],k)=>{let ba=null;const px=-dy,py=dx,hp=Math.max(...own.map(p=>Math.abs((p[0]-me.x)*px+(p[1]-me.y)*py)));
+  for(const f of [0,-.9,.9,-.45,.45]){const ox=me.x+px*f*hp,oy=me.y+py*f*hp,ex=Math.max(0,...hitsT(own,ox,oy,dx,dy));let best=null;
    others.forEach(pl=>hitsT(pl,ox,oy,dx,dy).forEach(t=>{const d=t-ex;if(d>=-1e-6&&(best==null||d<best))best=Math.max(0,d);}));
    if(best!=null&&(ba==null||best<ba.d))ba={d:best,ax:ox+dx*ex,ay:oy+dy*ex,bx:ox+dx*(ex+best),by:oy+dy*(ex+best)};}
   if(ba)out.push(Object.assign({k},ba));});return out;}
-function setDist(k,v){if(!sel||!(v>=0))return;const d=dists(sel).find(o=>o.k===k);if(!d)return;const me=sel.t==='r'?E.rects[sel.i]:E.circs[sel.i];if(me.lk){flash(LKMSG);return;}push();const dl=d.d-v,[dx,dy]=DIRS[k];me.x=R1(me.x+dx*dl);me.y=R1(me.y+dy*dl);chg();}
+function setDist(k,v){if(!sel||!(v>=0))return;const d=dists(sel).find(o=>o.k===k);if(!d)return;const me=sel.t==='r'?E.rects[sel.i]:E.circs[sel.i];if(me.lk){flash(LKMSG);return;}push();const dl=d.d-v,[dx,dy]=frameDirs(me.x,me.y)[k];me.x=R1(me.x+dx*dl);me.y=R1(me.y+dy*dl);chg();}
 /* ancoraggi per le quote: punti degli elementi che si possono quotare */
 function anchors(){const out=[];
  E.pts.forEach(p=>out.push({ref:{t:'p',id:p.id},x:p.x,y:p.y}));
@@ -882,20 +885,21 @@ function anchors(){const out=[];
  return out;}
 function aXY(a){const k=JSON.stringify(a),m=anchors().find(q=>JSON.stringify(q.ref)===k);return m?{x:m.x,y:m.y}:null;}
 function ownerOf(a){if(a.t==='p')return{t:'p',id:a.id};if(a.t==='bp'){const l=E.lines.find(l=>l.id===a.id);return l?{t:'p',id:P(l[a.e]).id}:null;}return{t:a.t,id:a.id};}
-function moveOwner(w,dx,dy,m){if(!w)return false;
+function moveOwner(w,dx,dy,e){if(!w)return false;
  if(w.t==='p'){const p=E.pts.find(p=>p.id===w.id);if(!p)return false;if(p.lk){flash(LKMSG);return false;}p.x=R1(p.x+dx);p.y=R1(p.y+dy);return true;}
  if(w.t==='r'||w.t==='c'){const o=(w.t==='r'?E.rects:E.circs).find(o=>o.id===w.id);if(!o)return false;if(o.lk){flash(LKMSG);return false;}o.x=R1(o.x+dx);o.y=R1(o.y+dy);return true;}
  if(w.t==='o'){const o=E.ops.find(o=>o.id===w.id);if(!o)return false;if(o.lk){flash(LKMSG);return false;}const g=lg(E.lines[o.l]);
-  const dd=m==='h'?(Math.abs(g.ux)>1e-6?dx/g.ux:0):m==='v'?(Math.abs(g.uy)>1e-6?dy/g.uy:0):dx*g.ux+dy*g.uy;o.d=R1(Math.max(0,Math.min(g.L-o.w,o.d+dd)));return true;}
+  let dd;if(e){const dn=e.x*g.ux+e.y*g.uy;dd=Math.abs(dn)>1e-6?(dx*e.x+dy*e.y)/dn:0;}else dd=dx*g.ux+dy*g.uy;o.d=R1(Math.max(0,Math.min(g.L-o.w,o.d+dd)));return true;}
  return false;}
-function dimGeom(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return null;let A=a,B=b;
- if(d.m==='h'){const ym=(a.y+b.y)/2;A={x:a.x,y:ym};B={x:b.x,y:ym};}else if(d.m==='v'){const xm=(a.x+b.x)/2;A={x:xm,y:a.y};B={x:xm,y:b.y};}
+function dimDir(d){if(d.m==='h')return{x:1,y:0};if(d.m==='v')return{x:0,y:1};if(d.m==='u'||d.m==='n'){const l=E.lines.find(l=>l.id===d.rl);if(l){const g=lg(l);return d.m==='u'?{x:g.ux,y:g.uy}:{x:g.nx,y:g.ny};}}return null;}
+function dimGeom(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return null;let A=a,B=b;const e=dimDir(d);
+ if(e){const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,ta=(a.x-mx)*e.x+(a.y-my)*e.y,tb=(b.x-mx)*e.x+(b.y-my)*e.y;A={x:mx+e.x*ta,y:my+e.y*ta};B={x:mx+e.x*tb,y:my+e.y*tb};}
  return{a,b,A,B};}
-function dimVal(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return 0;return d.m==='h'?Math.abs(b.x-a.x):d.m==='v'?Math.abs(b.y-a.y):Math.hypot(b.x-a.x,b.y-a.y);}
-function setDim(i,v){if(!(v>=0))return;const d=E.dims[i],a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return;let dx=0,dy=0;
- if(d.m==='h')dx=a.x+(Math.sign(b.x-a.x)||1)*v-b.x;else if(d.m==='v')dy=a.y+(Math.sign(b.y-a.y)||1)*v-b.y;
+function dimVal(d){const a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return 0;const e=dimDir(d);return e?Math.abs((b.x-a.x)*e.x+(b.y-a.y)*e.y):Math.hypot(b.x-a.x,b.y-a.y);}
+function setDim(i,v){if(!(v>=0))return;const d=E.dims[i],a=aXY(d.p1),b=aXY(d.p2);if(!a||!b)return;const e=dimDir(d);let dx=0,dy=0;
+ if(e){const t=(b.x-a.x)*e.x+(b.y-a.y)*e.y,sg=Math.sign(t)||1;dx=e.x*(sg*v-t);dy=e.y*(sg*v-t);}
  else{const L=Math.hypot(b.x-a.x,b.y-a.y),ux=L>1e-9?(b.x-a.x)/L:1,uy=L>1e-9?(b.y-a.y)/L:0;dx=a.x+ux*v-b.x;dy=a.y+uy*v-b.y;}
- push();if(moveOwner(ownerOf(d.p2),dx,dy,d.m))chg();else U.pop();}
+ push();if(moveOwner(ownerOf(d.p2),dx,dy,e))chg();else U.pop();}
 function anchorAt(px,py){let best=14,r=null;anchors().forEach(a=>{const d=Math.hypot(X(a.x)-px,Y(a.y)-py);if(d<best){best=d;r=a;}});return r;}
 function sameOwner(a,b){const p=ownerOf(a),q=ownerOf(b);return p&&q&&p.t===q.t&&p.id===q.id;}
 function toggleLock(h){if(!h||h.t==='d')return;push();
@@ -953,6 +957,8 @@ function draw(){const svg=$('esvg'),r=svg.getBoundingClientRect();if(!r.width)re
   if(r.txt)s+=`<text x="${X(r.x)}" y="${Y(r.y)+4}" text-anchor="middle" font-size="12" fill="#1d2433">${esc(r.txt)}</text>`;});
  E.circs.forEach((r,i)=>{s+=`<circle cx="${X(r.x)}" cy="${Y(r.y)}" r="${r.d/2*V.k}" fill="#e8eefb" fill-opacity=".8" stroke="${isS('c',i)?'#1f6feb':'#44546a'}" stroke-width="${isS('c',i)?2:1.3}"/>`;
   if(r.txt)s+=`<text x="${X(r.x)}" y="${Y(r.y)+4}" text-anchor="middle" font-size="12" fill="#1d2433">${esc(r.txt)}</text>`;});
+ {const lo=new Set();for(let i=0;i<E.pts.length;i++)for(let j=i+1;j<E.pts.length;j++){if(Math.hypot(X(E.pts[i].x)-X(E.pts[j].x),Y(E.pts[i].y)-Y(E.pts[j].y))<=16){lo.add(i);lo.add(j);}}
+  lo.forEach(i=>{s+=`<circle cx="${X(E.pts[i].x)}" cy="${Y(E.pts[i].y)}" r="10" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="3 2"><title>Punti quasi sovrapposti ma non uniti: usa «Unisci punti vicini»</title></circle>`;});}
  E.pts.forEach((p,i)=>{s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${isS('p',i)?5:3}" fill="${isS('p',i)?'#1f6feb':'#fff'}" stroke="#1d2433"/>`;});
  dists(sel).forEach(o=>{s+=`<line x1="${X(o.ax)}" y1="${Y(o.ay)}" x2="${X(o.bx)}" y2="${Y(o.by)}" stroke="#0f766e" stroke-width="1.2" stroke-dasharray="4 3"/><circle cx="${X(o.ax)}" cy="${Y(o.ay)}" r="2.5" fill="#0f766e"/><circle cx="${X(o.bx)}" cy="${Y(o.by)}" r="2.5" fill="#0f766e"/>`;q+=qbox('P'+o.k,(X(o.ax)+X(o.bx))/2,(Y(o.ay)+Y(o.by))/2,R1(o.d),'#0f766e');});
 E.dims.forEach((d,i)=>{const G=dimGeom(d);if(!G)return;const{a,b,A,B}=G,on=isS('d',i),col=on?'#4c1d95':'#7c3aed';
@@ -1031,7 +1037,9 @@ function click(px,py,sh){
   if(!dpend){dpend=a;hint();draw();return;}
   if(JSON.stringify(a.ref)===JSON.stringify(dpend.ref))return;
   if(sameOwner(dpend.ref,a.ref)){flash('Scegli due elementi diversi');return;}
-  const m=dimMode==='al'?'a':(Math.abs(a.x-dpend.x)>=Math.abs(a.y-dpend.y)?'h':'v');push();E.dims.push({p1:dpend.ref,p2:a.ref,m});dpend=null;hint();chg();return;}
+  let m,rl;const ddx=a.x-dpend.x,ddy=a.y-dpend.y;
+  if(dimMode==='al')m='a';else{const w=dimMode==='auto'?wallRef(a.x,a.y):null;if(w){rl=w.id;m=Math.abs(ddx*w.ux+ddy*w.uy)>=Math.abs(ddx*w.nx+ddy*w.ny)?'u':'n';}else m=Math.abs(ddx)>=Math.abs(ddy)?'h':'v';}
+  push();E.dims.push(rl?{p1:dpend.ref,p2:a.ref,m,rl}:{p1:dpend.ref,p2:a.ref,m});dpend=null;hint();chg();return;}
  if(tool==='line'){const p=sp(px,py,sh);
   if(!pend){pend=p;hint();draw();return;}
   if(Math.hypot(p.x-pend.x,p.y-pend.y)<1)return;
@@ -1066,10 +1074,10 @@ function applyQ(key,v){const m=key[0];
 function fld(lab,attr,val,type){return `<div><small>${lab}</small><input ${attr} type="${type||'number'}" value="${esc(val==null?'':val)}"></div>`;}
 const SIDES={l:'Sinistra della linea',c:'Centrato sulla linea',r:'Destra della linea'};
 function sideSel(attr,v){return `<select ${attr}>${Object.keys(SIDES).map(k=>`<option value="${k}"${k===v?' selected':''}>${SIDES[k]}</option>`).join('')}</select>`;}
-function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('Altezza muri (mm)','data-g="H"',E.H)}${fld('Spessore muri (mm)','data-g="T"',E.T)}</div><small>Spessore delle nuove linee</small>${sideSel('id="edside"',E.sd||'l')}<button id="edsall" style="width:100%;margin-bottom:4px">Applica a tutte le linee</button>`;
+function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('Altezza muri (mm)','data-g="H"',E.H)}${fld('Spessore muri (mm)','data-g="T"',E.T)}</div><small>Spessore delle nuove linee</small>${sideSel('id="edside"',E.sd||'l')}<button id="edsall" style="width:100%;margin-bottom:4px">Applica a tutte le linee</button><button id="edweld" style="width:100%;margin-bottom:4px" title="Unisce gli estremi di linee che quasi si toccano (anello rosso)">Unisci punti vicini</button>`;
  if(tool==='rect')h+=`<h4>Nuovo rettangolo</h4><div class="row">${fld('Larghezza','data-n="rw"',RP.w)}${fld('Profondità','data-n="rd"',RP.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-n="rh"',RP.h)}${fld('Da terra','data-n="rz"',RP.z)}</div>${fld('Testo','data-n="rt"',RP.txt,'text')}<small>Clicca nel foglio per metterlo. Selezionato, mostra le distanze dagli altri elementi (muri, forme): cliccale e scrivi la quota per riposizionarlo.</small>`;
  if(tool==='circ')h+=`<h4>Nuovo cerchio</h4><div class="row">${fld('Diametro','data-n="cd"',CP.d)}${fld('Altezza (0 = muri)','data-n="ch"',CP.h)}</div><div class="row">${fld('Da terra','data-n="cz"',CP.z)}${fld('Testo','data-n="ct"',CP.txt,'text')}</div><small>Clic nel foglio per metterlo. Selezionato, mostra le distanze dagli altri elementi: cliccale per riposizionarlo.</small>`;
- if(tool==='dim')h+=`<h4>Nuova quota</h4><small>Direzione</small><select id="eddim"><option value="auto"${dimMode==='auto'?' selected':''}>Orizzontale o verticale (automatica)</option><option value="al"${dimMode==='al'?' selected':''}>Allineata (in linea retta)</option></select><small>Il 1° punto resta fermo, il 2° è quello che si sposta quando cambi la misura nel riquadro viola. Puoi quotare spigoli, centri e metà lati di rettangoli e cerchi, estremi di linee e aperture, angoli delle pareti.</small>`;
+ if(tool==='dim')h+=`<h4>Nuova quota</h4><small>Direzione</small><select id="eddim"><option value="auto"${dimMode==='auto'?' selected':''}>Parallela alla parete (automatica)</option><option value="hv"${dimMode==='hv'?' selected':''}>Orizzontale o verticale</option><option value="al"${dimMode==='al'?' selected':''}>Allineata ai due punti</option></select><small>Il 1° punto resta fermo, il 2° è quello che si sposta quando cambi la misura nel riquadro viola. Puoi quotare spigoli, centri e metà lati di rettangoli e cerchi, estremi di linee e aperture, angoli delle pareti.</small>`;
  if(tool==='lock')h+=`<h4>Blocca</h4><small>Clicca un elemento per bloccarlo o sbloccarlo. Un elemento bloccato non si sposta (neppure cambiando le quote).</small>`;
  if(tool==='op')h+=`<h4>Nuova apertura</h4><small>Tipo</small><select id="edkind">${Object.keys(KINDS).map(k=>`<option${k===kind?' selected':''}>${k}</option>`).join('')}</select><small>Clicca su una linea per metterla. Poi cambi larghezza (riquadro arancione), testo e posizione.</small>`;
  if(sel){const s=sel;h+=`<h4>Selezionato</h4>`;
@@ -1077,7 +1085,7 @@ function props(){const p=$('edp');let h=`<h4>Foglio</h4><div class="row">${fld('
   else if(s.t==='r'){const r=E.rects[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Larghezza','data-s="w"',r.w)}${fld('Profondità','data-s="d"',r.d)}</div><div class="row">${fld('Altezza (0 = muri)','data-s="h"',r.h)}${fld('Da terra','data-s="z"',r.z)}</div>${fld('Rotazione °','data-s="rot"',r.rot||0)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='c'){const r=E.circs[s.i];h+=`<div class="row">${fld('Centro X','data-s="x"',r.x)}${fld('Centro Y','data-s="y"',r.y)}</div><div class="row">${fld('Diametro','data-s="d"',r.d)}${fld('Altezza (0 = muri)','data-s="h"',r.h)}</div>${fld('Da terra','data-s="z"',r.z)}${fld('Testo','data-s="txt"',r.txt,'text')}`;}
   else if(s.t==='o'){const o=E.ops[s.i];h+=`<small>Tipo</small><select data-s="kind">${Object.keys(KINDS).map(k=>`<option${k===o.kind?' selected':''}>${k}</option>`).join('')}</select><div class="row">${fld('Larghezza','data-s="w"',o.w)}${fld('Dall\'inizio linea','data-s="d"',R1(o.d))}</div><div class="row">${fld('Da terra','data-s="z"',o.z)}${fld('Altezza (0 = fino al soffitto)','data-s="h"',o.h)}</div>${fld('Testo (vuoto = automatico)','data-s="txt"',o.txt,'text')}`;}
-  else if(s.t==='d'){const d=E.dims[s.i];h+=`${fld('Misura','data-s="dv"',R1(dimVal(d)))}<small>Direzione</small><select data-s="dm">${[['h','Orizzontale'],['v','Verticale'],['a','Allineata']].map(([k,t])=>`<option value="${k}"${d.m===k?' selected':''}>${t}</option>`).join('')}</select><button id="edswap" style="width:100%;margin-bottom:6px">Scambia 1° e 2° punto</button><small>Il 1° punto (quadratino) resta fermo, il 2° (pallino) si sposta cambiando la misura.</small>`;}
+  else if(s.t==='d'){const d=E.dims[s.i];h+=`${fld('Misura','data-s="dv"',R1(dimVal(d)))}<small>Direzione</small><select data-s="dm">${[['u','Parallela alla parete'],['n','Perpendicolare alla parete'],['h','Orizzontale'],['v','Verticale'],['a','Allineata']].map(([k,t])=>`<option value="${k}"${d.m===k?' selected':''}>${t}</option>`).join('')}</select><button id="edswap" style="width:100%;margin-bottom:6px">Scambia 1° e 2° punto</button><small>Il 1° punto (quadratino) resta fermo, il 2° (pallino) si sposta cambiando la misura.</small>`;}
   else if(s.t==='p'){const p=P(s.i);h+=`<div class="row">${fld('X','data-s="x"',p.x)}${fld('Y','data-s="y"',p.y)}</div><small>Punto di giunzione: spostandolo si spostano le linee collegate.</small>`;}
   if(s.t!=='d')h+=`<label class="ck"><input type="checkbox" data-s="lk" style="width:auto;margin:0"${isLocked(s)?' checked':''}> Bloccato (non si sposta)</label>`;
   h+=`<button class="danger" id="edrm" style="margin-top:8px">Elimina</button>`;}
@@ -1086,7 +1094,7 @@ function onField(el){const d=el.dataset,v=el.type==='text'?el.value:num(el.value
  if(d.g){if(v>0){push();E[d.g]=v;chg();}return;}
  if(d.n){const m={rw:['w',RP],rd:['d',RP],rh:['h',RP],rz:['z',RP],rt:['txt',RP],cd:['d',CP],ch:['h',CP],cz:['z',CP],ct:['txt',CP]}[d.n];if(m[1]===RP||m[1]===CP){if(el.type==='text')m[1][m[0]]=v;else if(v>=0)m[1][m[0]]=v;}return;}
  if(!sel)return;const f=d.s;
- if(sel.t==='d'){const dd=E.dims[sel.i];if(!dd)return;if(f==='dv')setDim(sel.i,v);else if(f==='dm'){push();dd.m=el.value;chg();}return;}
+ if(sel.t==='d'){const dd=E.dims[sel.i];if(!dd)return;if(f==='dv')setDim(sel.i,v);else if(f==='dm'){push();dd.m=el.value;if((dd.m==='u'||dd.m==='n')&&!E.lines.some(l=>l.id===dd.rl)){const b=aXY(dd.p2),w=b&&wallRef(b.x,b.y);if(w)dd.rl=w.id;else dd.m='a';}chg();}return;}
  if(f==='lk'){push();const on=el.checked?1:0;if(sel.t==='l'){const l=E.lines[sel.i];l.lk=on;P(l.a).lk=on;P(l.b).lk=on;}else{const o=sel.t==='p'?P(sel.i):sel.t==='r'?E.rects[sel.i]:sel.t==='c'?E.circs[sel.i]:E.ops[sel.i];o.lk=on;}chg();return;}
  if(isLocked(sel)&&(f==='x'||f==='y'||f==='d'&&sel.t==='o'||f==='llen'||f==='rot'&&false)){flash(LKMSG);props();return;}
  push();
@@ -1141,13 +1149,13 @@ function bindOnce(){if(bound)return;bound=true;bind();
  $('edus').onclick=()=>{if(vuoto()){alert('Disegna almeno una linea.');return;}askEnd(false);save();const d=dxf();$('ed').style.display='none';importDxf(new File([d.text],fname()+'.dxf',{type:'application/dxf'}));};
  const inp=$('edin');inp.onkeydown=e=>{if(e.key==='Enter')askEnd(true);else if(e.key==='Escape')askEnd(false);e.stopPropagation();};inp.onblur=()=>askEnd(true);
  $('edp').addEventListener('change',e=>{const el=e.target;if(el.id==='edkind'){kind=el.value;return;}if(el.id==='eddim'){dimMode=el.value;return;}if(el.id==='edside'){push();E.sd=el.value;chg();return;}if(el.dataset&&(el.dataset.g||el.dataset.n||el.dataset.s))onField(el);});
- $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edswap'&&sel&&sel.t==='d'){push();const dd=E.dims[sel.i];const t=dd.p1;dd.p1=dd.p2;dd.p2=t;chg();}if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'l');chg();}});
+ $('edp').addEventListener('click',e=>{if(e.target.id==='edrm'&&sel)del(sel);if(e.target.id==='edswap'&&sel&&sel.t==='d'){push();const dd=E.dims[sel.i];const t=dd.p1;dd.p1=dd.p2;dd.p2=t;chg();}if(e.target.id==='edweld'){push();const n=weld(16/V.k);if(n){chg();flash(n+' punti uniti');}else{U.pop();flash('Nessun punto vicino da unire');}}if(e.target.id==='edsall'){push();E.lines.forEach(l=>l.s=E.sd||'l');chg();}});
  addEventListener('resize',()=>{if(isOpen())draw();});
  addEventListener('keydown',e=>{if(!isOpen())return;if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
   if(e.key==='Escape'){if(dpend){dpend=null;hint();draw();}else if(pend){pend=null;hint();draw();}else if(sel){sel=null;props();draw();}}
   else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();del(sel);}
   else if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undo();}});}
 $('bed').onclick=open;
-window.__ed={undo:()=>undo(),anchors,aXY,dp:()=>dpend,get:()=>E,set:o=>{E=o;chg();},dxf,fit,open};
+window.__ed={sc:(x,y)=>[X(x),Y(y)],cp:cornerPt,undo:()=>undo(),anchors,aXY,dp:()=>dpend,get:()=>E,set:o=>{E=o;chg();},dxf,fit,open};
 })();
 </script></body></html>
