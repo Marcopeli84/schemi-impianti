@@ -60,11 +60,16 @@ g[data-id],g[data-pid]{cursor:pointer}
  #print{display:block}
  .page{page-break-after:always;height:189mm;display:flex;flex-direction:column;overflow:hidden}
  .page:last-child{page-break-after:auto}
+ .pghead,.pgfoot{display:flex;justify-content:space-between;gap:8mm}
  .pghead{min-height:14mm;margin-bottom:2mm}
+ .pghead>div,.pgfoot>div{flex:1;display:flex;flex-direction:column}
+ .pgfoot>div{justify-content:flex-end}
+ .pghead .r,.pgfoot .r{text-align:right}
+ .pghead .r img,.pgfoot .r img{margin-left:auto}
  .pghead .h1{font:600 12pt system-ui;margin:0 0 1mm}
  .pghead .h2{font:9pt system-ui;color:#333}
  .page svg{width:100%;flex:1;min-height:0}
- .pgfoot{height:14mm;display:flex;justify-content:flex-end;align-items:flex-end;margin-top:1mm}
+ .pgfoot{min-height:14mm;margin-top:1mm}
  .pgfoot img{display:block}
  @page{size:A4 landscape;margin:8mm}
 }
@@ -541,43 +546,52 @@ $('svgb').onclick=()=>{const a=document.createElement('a');a.href=URL.createObje
 const PRT_KEY='schemi_impianti_stampa_v1';
 const PRT_DEF=()=>({f:[{id:'file',l:'File di origine',on:true,v:'',b:1},{id:'wall',l:'Nome parete',on:true,v:'',b:1},{id:'det',l:'Dettagli (tra parentesi)',on:true,v:'',b:1},
  {id:'cli',l:'Cliente',on:false,v:''},{id:'ind',l:'Indirizzo',on:false,v:''},{id:'com',l:'Commessa',on:false,v:''},{id:'dat',l:'Data',on:false,v:''},{id:'dis',l:'Disegnatore',on:false,v:''},{id:'nota',l:'Note',on:false,v:''}],
- logo:{on:true,h:10}});
-let PRT=(()=>{const d=PRT_DEF();try{const j=JSON.parse(localStorage.getItem(PRT_KEY)||'null');if(j&&Array.isArray(j.f)){for(const x of d.f){const y=j.f.find(z=>z.id===x.id);if(y){x.on=!!y.on;x.v=String(y.v||'');if(!x.b)x.l=y.l||x.l;}}
-  for(const y of j.f)if(String(y.id).startsWith('c_'))d.f.push({id:y.id,l:String(y.l||'Campo'),on:!!y.on,v:String(y.v||'')});
-  if(j.logo){d.logo.on=j.logo.on!==false;d.logo.h=Math.min(25,Math.max(6,+j.logo.h||10));}}}catch(x){}return d;})();
+ logo:{on:true,h:10,pos:'br'}});
+const POSL={tl:'Alto a sinistra',tr:'Alto a destra',bl:'Basso a sinistra',br:'Basso a destra'};
+const okPos=x=>Object.prototype.hasOwnProperty.call(POSL,x);
+let PRT=(()=>{const d=PRT_DEF();try{const j=JSON.parse(localStorage.getItem(PRT_KEY)||'null');if(j&&Array.isArray(j.f)){for(const x of d.f){const y=j.f.find(z=>z.id===x.id);if(y){x.on=!!y.on;x.v=String(y.v||'');if(!x.b)x.l=y.l||x.l;if(okPos(y.pos))x.pos=y.pos;}}
+  for(const y of j.f)if(String(y.id).startsWith('c_'))d.f.push({id:y.id,l:String(y.l||'Campo'),on:!!y.on,v:String(y.v||''),pos:okPos(y.pos)?y.pos:'tl'});
+  if(j.logo){d.logo.on=j.logo.on!==false;d.logo.h=Math.min(25,Math.max(6,+j.logo.h||10));if(okPos(j.logo.pos))d.logo.pos=j.logo.pos;}}}catch(x){}for(const x of d.f)if(!okPos(x.pos))x.pos='tl';return d;})();
 function prtSave(){try{localStorage.setItem(PRT_KEY,JSON.stringify(PRT));}catch(x){}}
 const oggi=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();};
-function headParts(v){const g=id=>PRT.f.find(x=>x.id===id),on=id=>g(id)&&g(id).on;
- const file=on('file')?(g('file').v.trim()||S.nome):'',wall=on('wall')?VIEWS[v].n:'',det=on('det')?(g('det').v.trim()||VIEWS[v].s):'';
- let h1=[file,wall].filter(Boolean).join(' — ');if(det)h1+=(h1?' ':'')+'('+det+')';
- const ex=PRT.f.filter(x=>!x.b&&x.on&&(x.v.trim()||x.id==='dat')).map(x=>[x.l,x.id==='dat'&&!x.v.trim()?oggi():x.v.trim()]);
- return {h1,ex};}
-function headHTML(v){const {h1,ex}=headParts(v);return (h1?`<div class="h1">${esc(h1)}</div>`:'')+(ex.length?`<div class="h2">${ex.map(e=>`<b>${esc(e[0])}:</b> ${esc(e[1])}`).join(' &nbsp;·&nbsp; ')}</div>`:'');}
+function corner(v,c){const g=id=>PRT.f.find(x=>x.id===id),here=id=>{const x=g(id);return x&&x.on&&x.pos===c?x:null;};
+ const file=here('file')?(g('file').v.trim()||S.nome):'',wall=here('wall')?VIEWS[v].n:'',det=here('det')?(g('det').v.trim()||VIEWS[v].s):'';
+ let h1=[file,wall].filter(Boolean).join(' — ');if(det&&h1)h1+=' ('+det+')';
+ const ex=PRT.f.filter(x=>!x.b&&x.on&&x.pos===c&&(x.v.trim()||x.id==='dat')).map(x=>`<b>${esc(x.l)}:</b> ${esc(x.id==='dat'&&!x.v.trim()?oggi():x.v.trim())}`);
+ if(det&&!h1)ex.unshift(esc(det));
+ const txt=(h1?`<div class="h1">${esc(h1)}</div>`:'')+(ex.length?`<div class="h2">${ex.join(' &nbsp;·&nbsp; ')}</div>`:'');
+ const lg=PRT.logo.on&&PRT.logo.pos===c?`<img src="logo.png" alt="" style="height:${PRT.logo.h}mm">`:'';
+ return c[0]==='t'?lg+txt:txt+lg;}
+const blocchi=v=>({head:`<div class="pghead"><div class="l">${corner(v,'tl')}</div><div class="r">${corner(v,'tr')}</div></div>`,foot:`<div class="pgfoot"><div class="l">${corner(v,'bl')}</div><div class="r">${corner(v,'br')}</div></div>`});
 function prtDlg(){
+ const sel=c=>`<select class="pp" title="Dove stampare">${Object.keys(POSL).map(k=>`<option value="${k}"${k===c?' selected':''}>${POSL[k]}</option>`).join('')}</select>`;
  const rows=PRT.f.map((x,i)=>`<div class="pr" data-i="${i}"><input type="checkbox" class="po" ${x.on?'checked':''}>${x.b?`<span class="pl">${esc(x.l)}</span>`:`<input class="pll" value="${esc(x.l)}" spellcheck="false">`}`+
-  `<input class="pv" value="${esc(x.v)}" placeholder="${x.id==='file'?'(nome del progetto)':x.id==='wall'?'(nome della parete)':x.id==='det'?'(descrizione della vista)':x.id==='dat'?'(data di oggi)':''}" ${x.id==='wall'?'disabled':''} spellcheck="false">${x.b?'':`<button class="danger pd" title="Elimina il campo">✕</button>`}</div>`).join('');
+  `<input class="pv" value="${esc(x.v)}" placeholder="${x.id==='file'?'(nome del progetto)':x.id==='wall'?'(nome della parete)':x.id==='det'?'(descrizione della vista)':x.id==='dat'?'(data di oggi)':''}" ${x.id==='wall'?'disabled':''} spellcheck="false">${sel(x.pos)}${x.b?'<span style="width:30px"></span>':`<button class="danger pd" title="Elimina il campo">✕</button>`}</div>`).join('');
  const names=S.walls.map((w,i)=>`<div class="pr" data-w="${i}"><span class="pl">${esc(wallDesc(w))}</span><input class="pn2" value="${esc(w.n)}" spellcheck="false"></div>`).join('');
- modal(`<h2>Intestazione e logo di stampa</h2><p style="color:#6b7280;font-size:12px;margin:0 0 8px">Spunta i campi da stampare in alto a sinistra e compilali. Le scelte restano salvate per i prossimi lavori.</p>
- <style>.pr{display:flex;gap:8px;align-items:center;margin:4px 0}.pl{width:170px;font-size:13px}.pll{width:170px}.pv,.pn2{flex:1;min-width:0}#prv{background:#f3f4f6;border-radius:6px;padding:8px 10px;margin:10px 0;font-size:12px;min-height:34px}#prv .h1{font-weight:600;font-size:13px}</style>
+ modal(`<h2>Intestazione e logo di stampa</h2><p style="color:#6b7280;font-size:12px;margin:0 0 8px">Spunta i campi da stampare, compilali e scegli dove metterli nel foglio. Le scelte restano salvate per i prossimi lavori.</p>
+ <style>.pr{display:flex;gap:8px;align-items:center;margin:4px 0}.pl{width:160px;font-size:13px;flex:none}.pll{width:160px;flex:none}.pv,.pn2{flex:1;min-width:120px}select.pp{width:140px}#prv{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 40px auto;gap:4px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;margin:10px 0;font-size:11px}#prv>div{min-height:26px}#prv .r{text-align:right}#prv .r img{margin-left:auto}#prv img{display:block;max-height:30px!important}#prv .h1{font-weight:600;font-size:12px}#prv .mid{grid-column:1/3;border:1px dashed #9ca3af;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#9ca3af}#prv .b{align-self:end}</style>
  ${rows}<div class="pr"><button id="pad">＋ Aggiungi campo</button></div>
- <h3 style="margin:12px 0 4px;font-size:13px">Logo in basso a destra</h3>
- <div class="pr"><input type="checkbox" id="plo" ${PRT.logo.on?'checked':''}><span class="pl">Stampa il logo</span><span style="font-size:12px">altezza</span><input id="plh" type="number" min="6" max="25" value="${PRT.logo.h}" style="width:60px"><span style="font-size:12px">mm</span></div>
+ <h3 style="margin:12px 0 4px;font-size:13px">Logo</h3>
+ <div class="pr"><input type="checkbox" id="plo" ${PRT.logo.on?'checked':''}><span class="pl">Stampa il logo</span><span style="font-size:12px">altezza</span><input id="plh" type="number" min="6" max="25" value="${PRT.logo.h}" style="width:60px"><span style="font-size:12px">mm</span><span style="flex:1"></span>${sel(PRT.logo.pos).replace('class="pp"','class="pp" id="plp"')}<span style="width:30px"></span></div>
  <h3 style="margin:12px 0 4px;font-size:13px">Nomi delle pareti</h3>${names}
- <h3 style="margin:12px 0 4px;font-size:13px">Anteprima intestazione</h3><div id="prv"></div>
+ <h3 style="margin:12px 0 4px;font-size:13px">Anteprima del foglio</h3><div id="prv"></div>
  <div class="acts"><button id="pcl">Chiudi</button><button id="ppr" class="pri">Stampa / PDF</button></div>`);
- const prev=()=>{const v=Object.keys(VIEWS)[0];$('prv').innerHTML=headHTML(v)||'<i>(intestazione vuota)</i>';};
+ $('box').style.width='min(760px,94vw)';
+ const prev=()=>{const v=Object.keys(VIEWS)[0];$('prv').innerHTML=`<div class="l">${corner(v,'tl')}</div><div class="r">${corner(v,'tr')}</div><div class="mid">disegno</div><div class="l b">${corner(v,'bl')}</div><div class="r b">${corner(v,'br')}</div>`;};
  document.querySelectorAll('#box .pr[data-i]').forEach(r=>{const x=PRT.f[+r.dataset.i];
   r.querySelector('.po').onchange=e=>{x.on=e.target.checked;prtSave();prev();};
   r.querySelector('.pv').oninput=e=>{x.v=e.target.value;prtSave();prev();};
+  r.querySelector('.pp').onchange=e=>{x.pos=e.target.value;prtSave();prev();};
   const l=r.querySelector('.pll');if(l)l.oninput=e=>{x.l=e.target.value;prtSave();prev();};
   const d=r.querySelector('.pd');if(d)d.onclick=()=>{PRT.f.splice(+r.dataset.i,1);prtSave();prtDlg();};});
  document.querySelectorAll('#box .pr[data-w]').forEach(r=>{const w=S.walls[+r.dataset.w];r.querySelector('.pn2').onchange=e=>{const t=e.target.value.trim();if(!t){e.target.value=w.n;return;}push();w.n=t;if(VIEWS[w.k])VIEWS[w.k].n=t;buildTabs();prev();autosave();};});
- $('pad').onclick=()=>{PRT.f.push({id:'c_'+Date.now(),l:'Nuovo campo',on:true,v:''});prtSave();prtDlg();};
- $('plo').onchange=e=>{PRT.logo.on=e.target.checked;prtSave();};
- $('plh').oninput=e=>{PRT.logo.h=Math.min(25,Math.max(6,+e.target.value||10));prtSave();};
+ $('pad').onclick=()=>{PRT.f.push({id:'c_'+Date.now(),l:'Nuovo campo',on:true,v:'',pos:'tl'});prtSave();prtDlg();};
+ $('plo').onchange=e=>{PRT.logo.on=e.target.checked;prtSave();prev();};
+ $('plp').onchange=e=>{PRT.logo.pos=e.target.value;prtSave();prev();};
+ $('plh').oninput=e=>{PRT.logo.h=Math.min(25,Math.max(6,+e.target.value||10));prtSave();prev();};
  $('pcl').onclick=closeModal;$('ppr').onclick=()=>{closeModal();stampa();};prev();}
 async function stampa(){
- let h='';for(const v in VIEWS)h+=`<div class="page"><div class="pghead">${headHTML(v)}</div>${fullSVG(v)}<div class="pgfoot">${PRT.logo.on?`<img src="logo.png" alt="" style="height:${PRT.logo.h}mm">`:''}</div></div>`;
+ let h='';for(const v in VIEWS){const q=blocchi(v);h+=`<div class="page">${q.head}${fullSVG(v)}${q.foot}</div>`;}
  $('print').innerHTML=h;
  try{await Promise.all([...document.querySelectorAll('#print img')].map(i=>i.decode?i.decode().catch(()=>{}):0));}catch(x){}
  setTimeout(()=>print(),50);}
@@ -591,7 +605,7 @@ $('file').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(openText);e.
 
 /* ====================== finestre ====================== */
 function modal(html){$('box').innerHTML=html;$('ovl').style.display='flex';}
-function closeModal(){$('ovl').style.display='none';$('box').innerHTML='';}
+function closeModal(){$('ovl').style.display='none';$('box').innerHTML='';$('box').style.width='';}
 $('bnew').onclick=()=>{
  if((S.pieces.length||Object.values(ann).some(a=>a.length))&&!confirm('Iniziare un nuovo progetto con stanza vuota? Quello attuale si può recuperare con Annulla (Ctrl+Z) finché non chiudi la pagina; se non l\'hai salvato, salvalo prima.'))return;
  push();const n=newState();n.nid=S.nid;n.pid=S.pid;S=n;ann=S.ann;$('pn').value=S.nome;$('flip').checked=false;sel=selP=null;rebuild();autosave();roomDlg();};
